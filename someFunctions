@@ -1,0 +1,178 @@
+import numpy as np
+import heapq as hq
+from datetime import date
+
+class Friend():
+    def __init__(self, name):
+        self.name = name
+        self.money = 0
+
+
+class Expenses():
+
+    # categories = house, food, shopping, transportation, hobby, trip, medicine, education, gifts, business, pets, charity
+    # payment methods = online -> show شماره کارت or لینک پرداخت از آپ, cash
+    def __init__(self, value, payer, owers, shares = None, group_name, category, payment_method):
+        self.value = value
+        self.payer = payer
+        self.owers = owers
+        self.shares = shares
+        self.group_name = group_name
+        self.category = category
+        self.payment_method = payment_method
+        self.day = None
+
+    def calculate_shares(self, split_type = 'equal'):
+        if split_type == 'equal':
+            self.shares = [1] * (len(self.owers) + 1)
+
+
+class Group():
+    def __init__(self):
+        self.expenses = []
+        self.friends = []
+        self.groups = {} #key : gr name, value : category
+
+    def add_friend(self, new_friend):
+        self.friends.append(new_friend)
+
+    def add_expense(self, expense):
+        self.expenses.append(expense)
+        self.day = date.today()
+        if expense.group_name not in self.groups:
+            self.groups[expense.group_name] = expense.category
+        self.update_pay(expense)
+
+    def update_pay(self, expense):
+        total_shares = sum(expense.shares)
+        amount_for_one = [expense.value * expense.shares[i] / total_shares for i in range(len(expense.owers))]
+        for i, person in enumerate(expense.owers):
+            if person != expense.payer:
+                self.friends[person].money -= amount_for_one[i]
+                self.friends[expense.payer].money += amount_for_one[i]
+
+    def all_groups(self):
+        return [group for group in self.groups]
+
+    def expenses_in_gr(self, group):
+        return [expense for expense in self.expenses if expense.group_name == group]
+
+    def expenses_in_cat(self, category):
+        return [expense for expense in self.expenses if expense.category == category]
+
+    def total_gr(self, group):
+        e = self.expenses_in_gr(group)
+        e_amount = [ex.amount for ex in e]
+        return sum(e_amount)
+
+    def total_cat(self, category):
+        e = self.expenses_in_cat(category)
+        e_amount = [ex.amount for ex in e]
+        return sum(e_amount)
+
+    def total_person(self, person):
+        e_person = [expense for expense in self.expenses if expense.payer == person or person in expense.owers]
+        e_person_amount = []
+        for ex in e_person:
+            if ex.payer == person:
+                person_ind = len(ex.owers)
+            else:
+                person_ind = ex.owers.index(person)
+            e_person_amount.append(ex.amount * (ex.shares[person_ind] / sum(ex.shares)))
+        return sum(e_person_amount)
+
+    def search_person(self, person):
+        return [expense for expense in self.expenses if expense.payer == person or person in expense.owers]
+
+    def search_date(self, search_day):
+        return [expense for expense in self.expenses if expense.day = search_day]
+
+
+
+transactions = [['a', 'b', 50], ['b', 'c', 30], ['c', 'a', 20], ['d', 'a', 10]]
+transactions_2 = [['a', 'b', 1000], ['a', 'c', 2000], ['b', 'c', 5000]]
+transactions_3 = [[0, 0, 2], [0, 1, 63], [0, 3, 85], [0, 4, 49], [1, 1, 76], [1, 4, 27], [2, 3, 17], [3, 0, 73],
+                  [3, 1, 32], [3, 2, 50], [3, 3, 6], [3, 4, 71], [4, 1, 86], [4, 4, 10]]
+
+
+def convert_to_graph(transactions):
+    transaction_dict = {}
+    for giver, reciever, a in transactions:
+        if giver not in transaction_dict.keys():
+            transaction_dict[giver] = len(transaction_dict)
+        if reciever not in transaction_dict.keys():
+            transaction_dict[reciever] = len(transaction_dict)
+
+    n = len(transaction_dict)
+    # graph[i,j] indicates the amount that person i needs to pay to person j
+    graph = np.zeros((n, n))
+    for giver, reciever, amount in transactions:
+        graph[transaction_dict[giver], transaction_dict[reciever]] = amount
+
+    return transaction_dict, graph
+
+
+transaction_dict, graph = convert_to_graph(transactions_3)
+reverse_dict = {i: j for j, i in transaction_dict.items()}
+
+print(graph)
+
+
+class greedy_debt_simplification:
+
+    def __init__(self):
+        self.givers = []
+        self.recievers = []
+        self.n = len(graph)
+        self.amounts = [0 for _ in range(self.n)]
+
+    # for each user, calculate the amount he/she ows or has to pay
+    def calculate_amount(self, graph):
+        for i in range(self.n):
+            gain = np.sum(graph[:, i])
+            give = np.sum(graph[i, :], axis=0)
+            self.amounts[i] = int(gain - give)
+
+    # construct 2 heap structures, one for the givers and one for the recievers
+    def constructQ(self):
+        for i, amount in enumerate(self.amounts):
+            if amount > 0:
+                hq.heappush(self.recievers, (-amount, i))
+            elif amount < 0:
+                hq.heappush(self.givers, (amount, i))
+
+    def simplify_debts(self):
+        answer = []
+        while self.givers and self.recievers:
+
+            # pop the largest values for givers and recievers, and try to match them together
+            giver_amount, giver_id = hq.heappop(self.givers)
+            reciever_amount, reciever_id = hq.heappop(self.recievers)
+
+            transaction_val = min(-giver_amount, -reciever_amount)
+
+            # record the transaction made
+            answer.append([reverse_dict[giver_id], reverse_dict[reciever_id], transaction_val])
+
+            giver_amount += transaction_val
+            reciever_amount += transaction_val
+
+            # update the heaps
+            if giver_amount < 0:
+                hq.heappush(self.givers, (giver_amount, giver_id))
+
+            if reciever_amount < 0:
+                hq.heappush(self.recievers, (reciever_amount, reciever_id))
+
+        return answer
+
+    def answer(self):
+        self.calculate_amount(graph)
+        self.constructQ()
+        answer = self.simplify_debts()
+        print(self.amounts)
+        print(answer)
+
+
+s = greedy_debt_simplification()
+s.answer()
