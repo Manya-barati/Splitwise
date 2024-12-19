@@ -1,27 +1,34 @@
-graph= {'A':{'B':500} , 'B':{'C':300}, 'C':{'D':200}, 'D':{'A':100}, 'C':{'A':50}, 'E':{'F':400}, 'F':{'E':300}}
+graph= {'A':{'B':500} , 'B':{'C':300}, 'C':{'D':200, 'A':50}, 'D':{'A':100}, 'E':{'F':400}, 'F':{'E':300}}
 
 class delete_cycle:
     def __init__(self, graph):
-        self.graph= graph
+        self.graph = graph
+        self.cycle = []
 
     def dfs_util(self, node, visited):
 
         if visited[node] == 1: #node is being visited, cycle detected
+            self.cycle.append(node)
             return True
+        
         if visited[node] == 2: #node has already been explored
             return False
         
         visited[node] = 1
+        self.cycle.append(node)
 
         for child in self.graph[node].keys():
             if self.dfs_util(child, visited):
                 return True
-            
+
+        self.cycle.pop()   
         visited[node] = 2 
         return False
 
+
     def detect_cycle(self):
         visited={key:0 for key in self.graph.keys()}  #0 = not visited, 1= visiting, 2= fully visited
+        self.cycle = []
 
         for node in self.graph.keys():
             if visited[node] == 0:
@@ -29,9 +36,36 @@ class delete_cycle:
                     return True
         return False
     
+    def del_cycles(self):
+        while self.detect_cycle():
+            exp= []
+            for i in range(len(self.cycle)-1):
+                exp.append(self.graph[self.cycle[i]][self.cycle[i+1]])
+            x= min(exp)
+
+            for j in range(len(self.cycle)-1):
+                self.graph[self.cycle[j]][self.cycle[j+1]] -= x
+
+            exp= [i - x for i in exp]
+            for i, ex in enumerate(exp):
+                if ex == 0:
+                    del self.graph[self.cycle[i]][self.cycle[i+1]]
+
+            removed_nodes= [node for node in self.graph if not self.graph[node]]
+            for node in removed_nodes:
+                del self.graph[node]
+
+            print(self.cycle)
+            self.cycle = []
+            
+                
+    
     def answer(self):
-        if self.detect_cycle():
-            print('yes')
+        self.detect_cycle()
+        print(self.cycle)
+        self.del_cycles()
+        print(self.graph)
+ 
 
 s= delete_cycle(graph)
 s.answer()
