@@ -1,9 +1,27 @@
-graph= {'A':{'B':500} , 'B':{'C':300}, 'C':{'D':200, 'A':50}, 'D':{'A':100}, 'E':{'F':400}, 'F':{'E':300}}
+import heapq as hq
+transactions= [[0,0,2], [0,1,63], [0,3,85], [0,4,49], [1,1,76], [1,4,27], [2,3,17], [3,0,73], [3,1,32], [3,2,50], [3,3,6], [3,4,71], [4,1,86], [4,4,10]] 
 
-class delete_cycle:
+
+# convert the transactions list to a dictionary
+def convert_to_graph(transactions):
+    graph= {}
+    for giver, reciever, amount in transactions:
+        if giver not in graph:
+            graph[giver]= {reciever:amount}
+        else:
+            graph[giver][reciever] = amount
+    return graph
+
+graph = convert_to_graph(transactions)
+print(graph)
+graph_2= {'A':{'B':500} , 'B':{'C':300}, 'C':{'D':200, 'A':50}, 'D':{'A':100}, 'E':{'F':400}, 'F':{'E':300}}
+
+
+class Delete_Cycle:
     def __init__(self, graph):
         self.graph = graph
         self.cycle = []
+
 
     def dfs_util(self, node, visited):
 
@@ -35,9 +53,18 @@ class delete_cycle:
                 if self.dfs_util(node, visited):
                     return True
         return False
-    
+
+
     def del_cycles(self):
+
         while self.detect_cycle():
+
+            # correct the cycle list to start and end in the same node
+            n= len(self.cycle)
+            cycle_start = self.cycle[n-1]
+            self.cycle = self.cycle[self.cycle.index(cycle_start):]
+
+            # find the minimum transaction in the cycle
             exp= []
             for i in range(len(self.cycle)-1):
                 exp.append(self.graph[self.cycle[i]][self.cycle[i+1]])
@@ -46,26 +73,88 @@ class delete_cycle:
             for j in range(len(self.cycle)-1):
                 self.graph[self.cycle[j]][self.cycle[j+1]] -= x
 
+            # delete the zero transactions
             exp= [i - x for i in exp]
             for i, ex in enumerate(exp):
                 if ex == 0:
                     del self.graph[self.cycle[i]][self.cycle[i+1]]
 
-            removed_nodes= [node for node in self.graph if not self.graph[node]]
-            for node in removed_nodes:
-                del self.graph[node]
-
-            print(self.cycle)
-            self.cycle = []
-            
-                
+            self.cycle = []         
     
+
     def answer(self):
-        self.detect_cycle()
-        print(self.cycle)
         self.del_cycles()
         print(self.graph)
+        return self.graph
+        
  
 
-s= delete_cycle(graph)
-s.answer()
+class Greedy_Debt_Simplification:
+
+    def __init__(self, graph):
+        self.graph = graph
+        self.givers= []
+        self.recievers= []
+        self.n= len(self.graph)
+        self.amounts= {}
+
+    #for each user, calculate the amount he/she ows or has to pay
+    def calculate_amount(self):
+        gain = {node:0 for node in self.graph}
+        give = {node:0 for node in self.graph}
+
+        for u, neighbors in self.graph.items():
+            for v, amount in neighbors.items():
+                gain[v] += amount
+                give[u] += amount
+
+        self.amounts = {node: gain[node]-give[node] for node in self.graph}
+
+    #construct 2 heap structures, one for the givers and one for the recievers
+    def constructQ (self):
+        for node , amount in self.amounts.items():
+            if amount > 0:
+                hq.heappush(self.recievers, (-amount, node))
+            elif amount < 0:
+                hq.heappush(self.givers, (amount, node))
+
+
+    def simplify_debts(self):
+        new_graph = {node:{} for node in self.graph}
+
+        while self.givers and self.recievers:
+
+            # pop the largest values for givers and recievers, and try to match them together
+            giver_amount, giver_id= hq.heappop(self.givers)
+            reciever_amount, reciever_id= hq.heappop(self.recievers)
+
+            transaction_val= min(-giver_amount, -reciever_amount)
+
+            # record the transaction made
+            new_graph[giver_id][reciever_id] = transaction_val
+
+            giver_amount += transaction_val
+            reciever_amount += transaction_val
+
+            #update the heaps
+            if giver_amount < 0:
+                hq.heappush(self.givers, (giver_amount, giver_id))
+
+            if reciever_amount < 0:
+                hq.heappush(self.recievers, (reciever_amount, reciever_id))
+
+        return new_graph
+
+    def answer(self):
+        self.calculate_amount()
+        self.constructQ()
+        new_graph= self.simplify_debts()
+        print(new_graph)
+
+
+cycle = Delete_Cycle(graph)
+graph = cycle.answer()
+
+greedy= Greedy_Debt_Simplification(graph)
+greedy.answer()
+
