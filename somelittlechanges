@@ -1,0 +1,89 @@
+
+class Group():
+    def __init__(self, group_name, group_type):
+        self.expenses = []
+        self.friends = []
+        self.groups = {} #key : gr name, value : category
+        self.name = group_name
+        self.type = group_type
+
+    def add_friend(self, new_friend):
+        self.friends.append(new_friend)
+
+    def add_expense(self, expense):
+        self.expenses.append(expense)
+        expense.calculate_shares()
+        self.day = date.today()
+        if expense.group_name not in self.groups:
+            self.groups[expense.group_name] = expense.category
+        self.update_pay(expense)
+
+    def update_pay(self, expense):
+        for i, person in enumerate(expense.owers):
+            if person != expense.payer:
+                self.friends[person].money -= expense.for_one[i]
+                self.friends[expense.payer].money += expense.for_one[i]
+
+    def all_groups(self):
+        return [group for group in self.groups]
+
+    def expenses_in_gr(self, group):
+        return [expense for expense in self.expenses if expense.group_name == group]
+
+    def expenses_in_cat(self, category):
+        return [expense for expense in self.expenses if expense.category == category]
+
+    def total_gr(self, group):
+        e = self.expenses_in_gr(group)
+        e_amount = [ex.amount for ex in e]
+        return sum(e_amount)
+
+    def total_cat(self, category):
+        e = self.expenses_in_cat(category)
+        e_amount = [ex.amount for ex in e]
+        return sum(e_amount)
+
+    def total_person(self, person):
+        e_person = [expense for expense in self.expenses if expense.payer == person or person in expense.owers]
+        e_person_amount = []
+        for ex in e_person:
+            if ex.payer == person:
+                person_ind = len(ex.owers)
+            else:
+                person_ind = ex.owers.index(person)
+            e_person_amount.append(ex.amount * (ex.shares[person_ind] / sum(ex.shares)))
+        return sum(e_person_amount)
+
+    def search_person(self, person):
+        return [expense for expense in self.expenses if expense.payer == person or person in expense.owers]
+
+    def search_date(self, search_day):
+        return [expense for expense in self.expenses if expense.day == search_day]
+
+class Expenses():
+
+    # categories = house, food, shopping, transportation, hobby, trip, medicine, education, gifts, business, pets, charity
+    # payment methods = online -> show شماره کارت or لینک پرداخت از آپ, cash
+    def __init__(self, value, payer, owers, group_name, category, payment_method, split_type = 'equal', shares = None):
+        self.value = value
+        self.payer = payer
+        self.owers = owers
+        self.shares = shares
+        self.split_type = split_type
+        self.group_name = group_name
+        self.category = category
+        self.payment_method = payment_method
+        self.day = None
+        self.for_one = []
+
+    def calculate_shares(self):
+        if self.split_type == 'equal':
+            self.shares = [1] * (len(self.owers) + 1)
+            total_shares = sum(self.shares)
+            self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]
+        else:
+            if self.shares:
+                total_shares = sum(self.shares)
+                self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]
+
+
