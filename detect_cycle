@@ -145,16 +145,15 @@ class Greedy_Debt_Simplification:
 
         return new_graph
 
-    def answer(self):
+        def answer(self):
         self.calculate_amount()
         self.constructQ()
         new_graph= self.simplify_debts()
-        print(new_graph)
+        return new_graph
 
 
 cycle = Delete_Cycle(graph)
 graph = cycle.answer()
 
 greedy= Greedy_Debt_Simplification(graph)
-greedy.answer()
-
+graph = greedy.answer()
