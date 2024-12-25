@@ -94,6 +94,7 @@ class Expenses():
         self.day = None
         self.for_one = []
         self.graph = []
+        self.shares_dict = {}
 
     def calculate_shares(self):
         if self.split_type == 'equal':
@@ -104,12 +105,16 @@ class Expenses():
             if self.shares:
                 total_shares = sum(self.shares)
                 self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]
-
+                
+    def shares_to_dict(self):
+        self.shares_dict[self.payer] = self.for_one[0]
+        for i, ower in enumerate(self.owers):
+            self.shares_dict[ower] = self.for_one[i+1]
+        
     def to_graph(self):
         for i, ower in enumerate(owers):
             self.graph.append([self.payer, ower, self.for_one[i+1]])
         return self.graph
-
 
 
 # graph visualization
