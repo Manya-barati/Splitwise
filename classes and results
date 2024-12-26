@@ -165,7 +165,7 @@ def visualize_graph(graph):
     for payer, owers in graph.items():
         for ower, amount in owers.items():
             vis_graph.add_edge(payer, ower, weight = amount)
-    nodes_pos = nx.spring_layout(vis_graph, k = 2, iterations=50)
+    nodes_pos = nx.spring_layout(vis_graph, k = 5, iterations=50)
     nodes_color = calculate_color(vis_graph)
     plt.figure(figsize = (8, 6))
     nx.draw(vis_graph, nodes_pos, with_labels= True, node_color = nodes_color, node_size = 1000, font_size = 10)
