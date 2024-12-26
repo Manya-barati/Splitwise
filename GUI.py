@@ -7,14 +7,21 @@ import csv
 
 group_dict={}
 group_names="files\\group_names.txt"
+group_types="files\\group_types.txt"
 group_list=[]
+group_tlist=[]
+
+with open(group_types, mode='r') as f :
+    reader=f.readlines()
+    for row in reader: 
+        if row:
+            group_tlist=row.split(",")
 
 with open(group_names, mode='r') as f :
     reader=f.readlines()
     for row in reader: 
         if row:
             group_list=row.split(",")
-            print(row)
 
 #loading group type images
 trip=Image.open('pics\\trip.png')
@@ -71,11 +78,76 @@ def new_group_page():
     page_1.pack_forget()
     add_group_page.pack()
 
+def on_item_select(event):
+    selected_item = group_table.focus()
+    item_values = group_table.item(selected_item, "values")
+    #print(f"Selected Item: {item_values}")
+    if item_values:
+        details_page(item_values)
+#to be fixed
+def details_page(item_values):
+    page_1.pack_forget()
+    details_page=ttk.Frame(window, width= 700, height=700)
+    details_page.pack_propagate(False)
+
+    add_friend_button=ttk.Button(details_page,text='Add person',command= lambda: add_friend(details_page))
+    add_friend_button.place(x=300,y=150)
+
+    add_expense_button=ttk.Button(master= details_page, text='Add Expenses', command= lambda: expense_page_func(details_page)  )
+    add_expense_button.place(x=300,y=550)
+
+    main_page_button=ttk.Button(master= details_page, text='Main Page', command= lambda: return_to_mainpage(details_page))
+    main_page_button.place(x=300,y=600)
+
+    group_name_label=ttk.Label(details_page, text=f"Group name:  {item_values[1]}")
+    group_name_label.place(x=280,y=30)
+
+    group_type_label=ttk.Label(details_page, text=f"Group type:  {item_values[2]}")
+    group_type_label.place(x=280,y=70)   
+
+    details_page.pack()
+
+def switch_back_to_main(current_frame):
+    current_frame.pack_forget()
+    page_1.pack()
+
+def on_item_select(event):
+    global selected_item_details
+    selected_item = group_table.focus()
+    selected_item_details = group_table.item(selected_item, "values")
+    if selected_item_details:
+        details_button.config(state=tk.NORMAL)
+
+def show_details_page_from_button():
+    if selected_item_details:
+        details_page(selected_item_details)
+    else:
+        print("No item selected!")
+
+selected_item_details = None
 
 page_1=ttk.Frame(window, width= 700, height=500)
 page_1.pack_propagate(False)
+
+details_button = ttk.Button(master=page_1, text="Details", state=tk.DISABLED, command=show_details_page_from_button)
+details_button.place(x=300, y=350)
+
 new_button=ttk.Button(master= page_1, text='New Group', command= new_group_page)
 new_button.place(x=300,y=20)
+
+group_table_frame=ttk.Frame(master=page_1,width= 100, height=100)
+group_table=ttk.Treeview(master= group_table_frame, columns= ('number','g_name','g_type'),show='headings')
+group_table.heading('number', text='Number')
+group_table.heading('g_name', text='Group Name')
+group_table.heading('g_type', text='Group Type')
+for i in range(len(group_list)-1):
+    number=i+1
+    name=group_list[i]
+    g_type=group_tlist[i]
+    group_table.insert(parent='', index=tk.END, values=(number,name,g_type))
+group_table.bind("<<TreeviewSelect>>", on_item_select)
+group_table.pack()
+group_table_frame.place(x=50, y=100)
 page_1.pack()
 
 def return_to_mainpage(current_page):
@@ -94,7 +166,7 @@ group_name_label.place(x=220,y=40)
 group_type_label=ttk.Label(add_group_page, text="Group type")
 group_type_label.place(x=300,y=120)
 
-selected=tk.StringVar()
+selected=tk.StringVar(value="")
 radio1=ttk.Radiobutton(master=add_group_page, variable=selected, value='Trip', image=Ticon, text='Trip' ,compound='top')
 radio2=ttk.Radiobutton(master=add_group_page, variable=selected, value='Home', image=Hicon, text='Home' ,compound='top')
 radio3=ttk.Radiobutton(master=add_group_page, variable=selected, value='Couple', image=Cicon, text='Couple' ,compound='top')
@@ -109,28 +181,42 @@ radio5.place(x=250,y=270)
 radio6.place(x=350,y=270)
 
 def create_group():
-    global group_nam
+    global group_nam,selected_gtype, error_label1, error_label2, error_label3
     group_nam=group_name.get().strip()
-    if group_nam and selected.get() and group_nam not in group_list:
-        group_dict[group_nam]=(Group(group_nam, selected.get()),[])
+    selected_gtype=selected.get()
+    if group_nam and selected_gtype and group_nam not in group_list:
+        group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
         group_list.append(group_nam)
+        group_tlist.append(selected_gtype)
         with open(group_names, mode='a') as f :
             f.write(group_nam+',')
-        with open(f"files//{group_nam}_{selected.get()}.csv", mode='w') as f :
+        with open(group_types, mode='a') as f :
+            f.write(selected_gtype+',')
+        with open(f"files//{group_nam}_{selected_gtype}.csv", mode='w') as f :
             pass
+
         add_group_page.pack_forget()
-        group_name_label=ttk.Label(add_friend_page, text=f"Group name:  {group_name.get()}")
+        group_name_label=ttk.Label(add_friend_page, text=f"Group name:  {group_nam}")
         group_name_label.place(x=280,y=30)
 
-        group_type_label=ttk.Label(add_friend_page, text=f"Group type:  {selected.get()}")
+        group_type_label=ttk.Label(add_friend_page, text=f"Group type:  {selected_gtype}")
         group_type_label.place(x=280,y=70)
         add_friend_page.pack()
-        '''add_group_page.entry.delete(0,tk.END)
-        add_group_page.radio_var.set("")
-        add_group_page.label.place_forget()'''
 
+        group_name_entry.delete(0,tk.END)
+        selected.set("")
+        try:
+            error_label1.place_forget()
+            error_label2.place_forget()
+            error_label3.place_forget()
+        except:
+            pass
     elif not group_nam:
         error_label1=ttk.Label(master= add_group_page, text='Please enter a group name.', foreground="red")
+        try:
+            error_label3.place_forget()
+        except:
+            pass            
         error_label1.place(x=220,y=10)
     elif not selected.get():
         error_label2=ttk.Label(master= add_group_page, text='Please specify a group type.', foreground="red")
@@ -147,35 +233,48 @@ main_page_button=ttk.Button(master= add_group_page, text='Main Page', command= l
 main_page_button.place(x=335,y=430)
 
 def add_name():
+    global error_label4
     friend_nam=friend_name.get().strip()
+    if not group_dict[group_nam][1]:
+        with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
+            f.write(' ,')        
     if friend_nam not in group_dict[group_nam][1]:
+        friend_table.pack_forget()
         add_friend_name.pack_forget()
         add_friend_page.pack()
         group_dict[group_nam][1].append(friend_nam)
+        friend_entry.delete(0,tk.END)
+        with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
+            f.write(friend_nam+',')
+        try:
+          error_label4.place_forget()
+        except:
+            pass
+        f_table()  
     else:
-        error_label=ttk.Label(master= add_friend_name, text='The name already exists, please enter another name.', foreground="red")
-        error_label.place(x=100,y=20) 
+        error_label4=ttk.Label(master= add_friend_name, text='The name already exists, please enter another name.', foreground="red")
+        error_label4.place(x=100,y=20) 
 
-def add_friend():
-    print(group_dict)
-    add_friend_page.pack_forget()
+def add_friend(page_to_forget):
+    #print(group_dict)
+    page_to_forget.pack_forget()
     add_friend_name.pack()
 
-def expense_page_func():
-    add_friend_page.pack_forget()
+def expense_page_func(page_to_forget):
+    page_to_forget.pack_forget()
     expense_page.pack()
     
-add_friend_page=ttk.Frame(window, width= 700, height=500)
+add_friend_page=ttk.Frame(window, width= 700, height=700)
 add_friend_page.pack_propagate(False)
 
-add_friend_button=ttk.Button(add_friend_page,text='Add person',command=add_friend)
+add_friend_button=ttk.Button(add_friend_page,text='Add person',command=lambda : add_friend(add_friend_page))
 add_friend_button.place(x=300,y=150)
 
-add_expense_button=ttk.Button(master= add_friend_page, text='Add Expenses', command= expense_page_func  )
-add_expense_button.place(x=300,y=370)
+add_expense_button=ttk.Button(master= add_friend_page, text='Add Expenses', command= lambda :expense_page_func(add_friend_page)  )
+add_expense_button.place(x=300,y=550)
 
 main_page_button=ttk.Button(master= add_friend_page, text='Main Page', command= lambda: return_to_mainpage(add_friend_page))
-main_page_button.place(x=300,y=430)
+main_page_button.place(x=300,y=600)
 
 friend_table=ttk.Treeview(add_friend_page, columns= ('Number','Name'))
 
@@ -187,12 +286,23 @@ friend_entry.place(x=220, y=50)
 friend_name_label=ttk.Label(master=add_friend_name,text="Please type the name")
 friend_name_label.place(x=70, y=50)
 add_name_button=ttk.Button(master=add_friend_name,text='Add',command=add_name)
-add_name_button.place(x=220, y=110)
+add_name_button.place(x=220, y=200)
 main_page_button=ttk.Button(master= add_friend_name, text='Main Page', command= lambda: return_to_mainpage(add_friend_name))
-main_page_button.place(x=190,y=350)
+main_page_button.place(x=190,y=300)
 
-friend_table=ttk.Treeview(master= add_friend_page, columns= ('Name','Expense'))
-#friend_table.place()
+friend_table_frame=ttk.Frame(add_friend_page,width= 50, height=50)
+def f_table():
+    global friend_table
+    friend_table=ttk.Treeview(master= friend_table_frame, columns= ('number','name'),show='headings')
+    friend_table.heading('number', text='Number')
+    friend_table.heading('name', text='Name')
+    for i in range(len(group_dict[group_nam][1])):
+        number=i+1
+        name=group_dict[group_nam][1][i]
+        friend_table.insert(parent='', index=tk.END, values=(number,name))
+    friend_table.pack()
+
+friend_table_frame.place(x=150, y=250)
 
 def return_expense_list():
     expense_list_page.pack()
