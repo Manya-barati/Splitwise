@@ -47,12 +47,12 @@ class Group():
 
     def total_gr(self, group):
         e = self.expenses_in_gr(group)
-        e_amount = [ex.amount for ex in e]
+        e_amount = [ex.value for ex in e]
         return sum(e_amount)
 
     def total_cat(self, category):
         e = self.expenses_in_cat(category)
-        e_amount = [ex.amount for ex in e]
+        e_amount = [ex.value for ex in e]
         return sum(e_amount)
 
     def total_person(self, person):
@@ -60,10 +60,10 @@ class Group():
         e_person_amount = []
         for ex in e_person:
             if ex.payer == person:
-                person_ind = len(ex.owers)
+                person_ind = 0
             else:
-                person_ind = ex.owers.index(person)
-            e_person_amount.append(ex.amount * (ex.shares[person_ind] / sum(ex.shares)))
+                person_ind = ex.owers.index(person) + 1
+            e_person_amount.append(ex.value * (ex.shares_dict[person_ind] / ex.value)
         return sum(e_person_amount)
 
     def search_person(self, person):
@@ -72,6 +72,8 @@ class Group():
     def search_date(self, search_day):
         return [expense for expense in self.expenses if expense.day == search_day]
 
+def total_person_balance(graph, person):
+    return graph[person]
 
 class Friend():
     def __init__(self, name):
