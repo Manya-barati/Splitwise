@@ -1,5 +1,6 @@
 import heapq as hq
 import numpy as np
+from scipy.optimize import linprog
 
 transactions_1= [[0,0,2], [0,1,63], [0,3,85], [0,4,49], [1,1,76], [1,4,27], [2,3,17], [3,0,73], [3,1,32], [3,2,50], [3,3,6], [3,4,71], [4,1,86], [4,4,10]] 
 transactions_2 = [['A', 'B', 500], ['B', 'C', 300], ['C', 'D', 200], ['C', 'A', 50], ['D', 'A', 100], ['E', 'F', 400], ['F', 'E', 300]]
@@ -196,6 +197,7 @@ class Greedy_Debt_Simplification:
         self.calculate_amount()
         self.constructQ()
         new_graph= self.simplify_debts()
+        print(self.amounts)
         return new_graph
 
 
@@ -268,9 +270,57 @@ class Max_Flow_Simplification:
                         self.graph[i][j] = mf
         return self.graph
 
+
+class Linear_Programming_Simplification:
+    def __init__(self, graph, balances):
+        self.graph = graph
+        self.balances = balances
+    
+    def LP(self):
+        creditors = [i for i, bal in self.balances.items() if bal > 0]
+        debtors = [i for i, bal in self.balances.items() if bal < 0]
+        print(creditors, debtors)
+
+        num_variables = len(creditors) * len(debtors)
+        c = [1] * num_variables
+        bounds = [(0, None)] * num_variables
+        
+        A_eq = []
+        b_eq = []
+
+        for i, debtor in enumerate(debtors):
+            A_row = [0] * num_variables
+            for j , creditor in enumerate(creditors):
+                A_row[i * len(creditors) + j] = 1
+            A_eq.append(A_row)
+            b_eq.append(-self.balances[debtor])
+
+        for j, creditor in enumerate(creditors):
+            A_row = [0] * num_variables
+            for i, debtor in enumerate(debtors):
+                A_row[i * len(creditors) + j] = 1
+            A_eq.append(A_row)
+            b_eq.append(self.balances[creditor])
+
+        res = linprog(c, A_eq = A_eq, b_eq = b_eq, bounds = bounds)
+        if not res.success:
+            raise ValueError('linear programming did not converg')
+        
+        transactions = []
+        x = res.x
+        for i , debtor in enumerate(debtors):
+            for j , creditor in enumerate(creditors):
+                amount = float (x[i * len(creditors) +j])
+                if amount > 0:
+                    transactions.append([debtor , creditor , amount])
+        print(self.balances)
+        return transactions
+
+
+
+
 Graph= Construct_graph(transactions_6)
 Graph.construct_transaction_dict()
-print(Graph.trans_dict)
 graph_1 = Graph.convert_to_dict_graph()
 print('initial graph', graph_1, '\n')
 
@@ -288,3 +338,9 @@ greedy= Greedy_Debt_Simplification(graph_2)
 graph_4 = greedy.answer()
 print('after greedy simplification', graph_4)
 
+lp = Linear_Programming_Simplification(graph_2_converted, greedy.amounts)
+trans = lp.LP()
+New_graph = Construct_graph(trans)
+New_graph.construct_transaction_dict()
+graph_5 = New_graph.convert_to_dict_graph()
+print('linear programming answer', graph_5)
