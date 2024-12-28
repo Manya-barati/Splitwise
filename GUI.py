@@ -368,11 +368,12 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
     extyp= selected_extype.get()
     split_typ= split_type.get() 
     share= expense_share.get().split(',')
-    try:
-        share=[float(x.strip()) for x in share]
-    except:
-        error_label9=ttk.Label(master= expense_page, text='Please enter a valid expense share.', foreground="red")
-        error_label9.place(x=250,y=100) 
+    if split_typ!='Equal':
+        try:
+            share=[float(x.strip()) for x in share]
+        except:
+            error_label9=ttk.Label(master= expense_page, text='Please enter a valid expense share.', foreground="red")
+            error_label9.place(x=250,y=100) 
 
     people=[expense_paye]+expense_ower
     if not expense_nam or not expense_amoun or not expense_paye or not expense_ower or not extyp:
@@ -380,9 +381,12 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
         error_label5.place(x=250,y=100)
     elif expense_nam not in expense_list and expense_paye in friends_list and all(ower in friends_list for ower in expense_ower) :
         if expense_page== expense_page1:
-            expense_table.pack_forget()
+            try:
+                expense_table.pack_forget()
+            except:
+                pass
         else:
-            expense_table.pack_forget()
+            expense_tabl.pack_forget()
         expense_list.append(expense_nam)
         amount_list.append(expense_amoun)
         extype_list.append(extyp)
@@ -408,7 +412,7 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
             f.write("\n"+f'{expense_nam}_{expense_amoun}_{extyp}_{expense_paye}'+",")
             f.write(",".join(whole_share)+",")
         if expense_page== expense_page1:
-            ex_table()
+            ex_table(path)
             expense_list_page.pack()
         else:
             ex_tabl(file_path)
@@ -426,18 +430,35 @@ def expense_list_func():
     exexpense_list_page.pack()
 
 
-def change_state():
+def change_state(expense_share_entry):
     expense_share_entry.config(state=tk.NORMAL)
-def off_state():
+def off_state(expense_share_entry):
     expense_share_entry.config(state=tk.DISABLED)
 
-def ex_table():
-    for i in range(len(expense_list)):
+def ex_table(path):
+    global expense_table
+    expense_table=ttk.Treeview(master= expense_table_frame, columns= ('number','ex_name','ex_type','ex_amount','payer'),show='headings')
+    expense_table.heading('number', text='Number')
+    expense_table.heading('ex_name', text='Expense Name')
+    expense_table.heading('ex_type', text='Expense Type')
+    expense_table.heading('ex_amount', text='Expense Amount')
+    expense_table.heading('payer', text='Payer')
+    expense_table.column('ex_name', width=130)
+    expense_table.column('ex_type', width=130)
+    expense_table.column('ex_amount', width=130)
+    expense_table.column('payer', width=130)
+    expense_table.column('number', width=100)
+    df= pd.read_csv(path)
+    df = df.iloc[:, :-1]
+    df = df.set_index(df.columns[0])
+    for i in range(len(list(df.index))):
         number=i+1
-        name= expense_list[i]
-        ex_type= extype_list[i]
-        amount= amount_list[i]
-        payer=payer_list[i]
+        elements=list(df.index)[i].split('_')
+        print(elements)
+        name= elements[0]
+        ex_type= elements[2]
+        amount= elements[1]
+        payer= elements[3]
         expense_table.insert(parent='', index=tk.END, values=(number, name, ex_type, amount, payer))
     expense_table.pack()
 
@@ -502,10 +523,11 @@ g_table()
 group_table_frame.place(x=50, y=100)
 page_1.pack()
 
+def calculate_trans():
+    pass
 
 
 
-#expense_list_p=
 
 
 add_group_page=ttk.Frame(window, width= 700, height=500)
@@ -634,9 +656,9 @@ def expense_stuffs(expense_page):
     split_type_label.place(x=300, y= 430)
 
     split_type=tk.StringVar(value='Equal') #default split is equal
-    equal=ttk.Radiobutton(master=expense_page, variable=split_type, value='Equal', text='Equal', command= off_state )
-    percentage=ttk.Radiobutton(master=expense_page, variable=split_type, value='Percentage', text='Percentage',command= change_state )
-    portion=ttk.Radiobutton(master=expense_page, variable=split_type, value='Portion', text='Portion',command= change_state)
+    equal=ttk.Radiobutton(master=expense_page, variable=split_type, value='Equal', text='Equal', command=  lambda: off_state(expense_share_entry) )
+    percentage=ttk.Radiobutton(master=expense_page, variable=split_type, value='Percentage', text='Percentage',command= lambda: change_state(expense_share_entry) )
+    portion=ttk.Radiobutton(master=expense_page, variable=split_type, value='Portion', text='Portion',command= lambda: change_state(expense_share_entry) )
     equal.place(x=180,y=470)
     percentage.place(x=280,y=470)
     portion.place(x=400,y=470)
@@ -657,13 +679,8 @@ expense_list_page=ttk.Frame(master=window, width= 700, height=700)
 expense_list_page.pack_propagate(False)
 
 expense_table_frame=ttk.Frame(master=expense_list_page,width=300, height=400)
-expense_table=ttk.Treeview(master= expense_table_frame, columns= ('number','ex_name','ex_type','ex_amount','payer'),show='headings')
-expense_table.heading('number', text='Number')
-expense_table.heading('ex_name', text='Expense Name')
-expense_table.heading('ex_type', text='Expense Type')
-expense_table.heading('ex_amount', text='Expense Amount')
-expense_table.heading('payer', text='Payer')
-expense_table_frame.place(x=20, y=100)
+
+expense_table_frame.place(x=50, y=100)
 
 
 
@@ -673,18 +690,24 @@ main_page_button.place(x=335,y=600)
 add_expense_button=ttk.Button(master= expense_list_page, text='Add Expenses', command= lambda: expense_page_func(expense_list_page,expense_page1)  )
 add_expense_button.place(x=300,y=550)
 
+calculate_button=ttk.Button(master= expense_list_page, text='Caluclate Transactions', command= calculate_trans  )
+calculate_button.place(x=300,y=500)
+
 
 #existing group expenses
 exexpense_list_page=ttk.Frame(master=window, width= 700, height=700)
 exexpense_list_page.pack_propagate(False)
 
 expense_tabl_frame=ttk.Frame(master=exexpense_list_page,width=200, height=400)
-expense_tabl_frame.place(x=20, y=100)
+expense_tabl_frame.place(x=50, y=100)
 
 main_page_button=ttk.Button(master= exexpense_list_page, text='Main Page', command= lambda: return_to_mainpage(exexpense_list_page))
-main_page_button.place(x=335,y=600)
+main_page_button.place(x=335,y=550)
 
 add_expense_button=ttk.Button(master= exexpense_list_page, text='Add Expenses', command= lambda: expense_page_func(exexpense_list_page,expense_page2)  )
-add_expense_button.place(x=300,y=550)
+add_expense_button.place(x=330,y=500)
+
+excalculate_button=ttk.Button(master= exexpense_list_page, text='Caluclate Transactions', command= calculate_trans  )
+excalculate_button.place(x=300,y=450)
 
 window.mainloop()
