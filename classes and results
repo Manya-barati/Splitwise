@@ -1,6 +1,7 @@
 import numpy as np
 import heapq as hq
-from datetime import date
+from datetime import date, timedelta
+import random
 import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as ttk
@@ -36,6 +37,15 @@ class Group():
                 self.friends[person].money -= expense.for_one[i]
                 self.friends[expense.payer].money += expense.for_one[i]
 
+    def recurring_expense(self):
+        today = date.today()
+        if expense.recurring and expense.next <= today:
+            new_expense = Expense(name = expense.name, value = expense.value, payer = expense.payer, owers = expense.owers,
+                                  group_name= expense.group_name, category = expense.category, payment_method = expense.payment_method,
+                                  split_type = 'equal', shares = None, recurring = True, interval = expense.interval)
+            self.add_expense(new_expense)
+            expense.next = expense.calculate_next()
+
     def all_groups(self):
         return [group for group in self.groups]
 
@@ -56,14 +66,14 @@ class Group():
         return sum(e_amount)
 
     def total_person(self, person):
-        e_person = [expense for expense in self.expenses if expense.payer == person or person in expense.owers]
+        e_person = [expense for exp in self.expenses if expense.payer == person or person in expense.owers]
         e_person_amount = []
         for ex in e_person:
             if ex.payer == person:
                 person_ind = 0
             else:
                 person_ind = ex.owers.index(person) + 1
-            e_person_amount.append(ex.value * (ex.shares_dict[person_ind] / ex.value)
+            e_person_amount.append(ex.value * (ex.shares_dict[person_ind] / ex.value))
         return sum(e_person_amount)
 
     def search_person(self, person):
@@ -72,8 +82,6 @@ class Group():
     def search_date(self, search_day):
         return [expense for expense in self.expenses if expense.day == search_day]
 
-def total_person_balance(graph, person):
-    return graph[person]
 
 class Friend():
     def __init__(self, name):
@@ -85,9 +93,10 @@ class Expense():
     ALLOWED_CATEGORIES = ("House", "Food", "Shopping", "Transportation", "Hobby", "Medicine", "Education", "Gifts", "Business", "Pets", "Charity")
     ALLOWED_PAYMENT_METHOD = ("cash", "credit_cards")
     ALLOWED_SPLIT_TYPE = ('equal', 'percentage', 'exact')
+    ALLOWED_INTERVALS = ("daily", "weekly", "monthly", "yearly")
     # payment methods = online -> show شماره کارت or لینک پرداخت از آپ, cash
 
-    def __init__(self, name, value, payer, owers, group_name, category, payment_method, split_type = 'equal', shares = None):
+    def __init__(self, name, value, payer, owers, group_name, category, payment_method, split_type = 'equal', shares = None, recurring = False, interval = None):
         self.name = name
         self.value = value
         self.payer = payer
@@ -98,6 +107,9 @@ class Expense():
         self.category = category
         self.payment_method = payment_method
         self.day = None
+        self.recurring = recurring
+        self.interval = interval
+        self.next = self.calculate_next()
         self.for_one = []
         self.graph = []
         self.shares_dict = {}
@@ -112,6 +124,18 @@ class Expense():
                 total_shares = sum(self.shares)
                 self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]
 
+    def calculate_next(self):
+        if self.recurring and self.interval:
+            if self.interval == 'daily':
+                return self.day + timedelta(days=1)
+            if self.interval == 'weekly':
+                return self.day + timedelta(weeks=1)
+            if self.interval == 'monthly':
+                return self.day + timedelta(days=30)
+            if self.interval == 'yearly':
+                return self.day + timedelta(days=365)
+            return None
+
     def shares_to_dict(self):
         self.calculate_shares()
         self.shares_dict[self.payer] = self.for_one[0]
@@ -122,6 +146,10 @@ class Expense():
         for i, ower in enumerate(owers):
             self.graph.append([self.payer, ower, self.for_one[i+1]])
         return self.graph
+
+def total_person_balance(graph, person):
+    return graph[person]
+
 # an example to show if visualization works
 expense_1 = Expense(
     name ="Diner",
