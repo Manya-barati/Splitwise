@@ -82,6 +82,12 @@ class Group():
     def search_date(self, search_day):
         return [expense for expense in self.expenses if expense.day == search_day]
 
+    def expense_in_category(self):
+        all_cat = {category: 0 for category in Expense.ALLOWED_CATEGORIES}
+        for ex in self.expenses:
+            if ex.category in all_cat:
+                all_cat[ex.category] += expense.value
+        return all_cat
 
 class Friend():
     def __init__(self, name):
@@ -262,3 +268,17 @@ def visualize_bar_chart(expenses):
 
 
 visualize_bar_chart(expenses)
+
+# pie chart for all expenses by category (value)
+
+def visualize_expenses_in_category(group):
+    category_totals = group.exp_in_cat()
+    labels = [key for key, value in category_totals.items() if value > 0]
+    values = [value for value in category_totals.values() if value > 0]
+    # generation of unrepeated colors for each category
+    colors = plt.cm.tab20(np.linspace(0, 1, labels))
+
+    plt.figure(figsize=(8, 6))
+    plt.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
+    plt.title("expenses in each category (total value of each category)")
+    plt.show()
