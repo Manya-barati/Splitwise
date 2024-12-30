@@ -1,6 +1,9 @@
 import heapq as hq
 import numpy as np
 from scipy.optimize import linprog
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value, PULP_CBC_CMD
+import random
+import networkx as nx
 
 transactions_1= [[0,0,2], [0,1,63], [0,3,85], [0,4,49], [1,1,76], [1,4,27], [2,3,17], [3,0,73], [3,1,32], [3,2,50], [3,3,6], [3,4,71], [4,1,86], [4,4,10]] 
 transactions_2 = [['A', 'B', 500], ['B', 'C', 300], ['C', 'D', 200], ['C', 'A', 50], ['D', 'A', 100], ['E', 'F', 400], ['F', 'E', 300]]
@@ -197,7 +200,6 @@ class Greedy_Debt_Simplification:
         self.calculate_amount()
         self.constructQ()
         new_graph= self.simplify_debts()
-        print(self.amounts)
         return new_graph
 
 
@@ -275,30 +277,29 @@ class Linear_Programming_Simplification:
     def __init__(self, graph, balances):
         self.graph = graph
         self.balances = balances
+        self.creditors = [i for i, bal in self.balances.items() if bal > 0]
+        self.debtors = [i for i, bal in self.balances.items() if bal < 0]
     
     def LP(self):
-        creditors = [i for i, bal in self.balances.items() if bal > 0]
-        debtors = [i for i, bal in self.balances.items() if bal < 0]
-        print(creditors, debtors)
 
-        num_variables = len(creditors) * len(debtors)
+        num_variables = len(self.creditors) * len(self.debtors)
         c = [1] * num_variables
         bounds = [(0, None)] * num_variables
         
         A_eq = []
         b_eq = []
 
-        for i, debtor in enumerate(debtors):
+        for i, debtor in enumerate(self.debtors):
             A_row = [0] * num_variables
-            for j , creditor in enumerate(creditors):
-                A_row[i * len(creditors) + j] = 1
+            for j , creditor in enumerate(self.creditors):
+                A_row[i * len(self.creditors) + j] = 1
             A_eq.append(A_row)
             b_eq.append(-self.balances[debtor])
 
-        for j, creditor in enumerate(creditors):
+        for j, creditor in enumerate(self.creditors):
             A_row = [0] * num_variables
-            for i, debtor in enumerate(debtors):
-                A_row[i * len(creditors) + j] = 1
+            for i, debtor in enumerate(self.debtors):
+                A_row[i * len(self.creditors) + j] = 1
             A_eq.append(A_row)
             b_eq.append(self.balances[creditor])
 
@@ -308,39 +309,106 @@ class Linear_Programming_Simplification:
         
         transactions = []
         x = res.x
-        for i , debtor in enumerate(debtors):
-            for j , creditor in enumerate(creditors):
-                amount = float (x[i * len(creditors) +j])
+        for i , debtor in enumerate(self.debtors):
+            for j , creditor in enumerate(self.creditors):
+                amount = float (x[i * len(self.creditors) +j])
                 if amount > 0:
                     transactions.append([debtor , creditor , amount])
-        print(self.balances)
+        return transactions
+
+    def MILP(self):  # mixed integer linear programming
+        prob = LpProblem('DebtSimplification', LpMinimize)
+
+        x = { (i, j): LpVariable(f'x_{i}_{j}', lowBound = 0) for i in self.debtors for j in self.creditors} # x[i, j] represents the amount transacted from i to j
+        y = { (i, j): LpVariable(f'y_{i}_{j}', cat = 'Binary') for i in self.debtors for j in self.creditors}  #y[i, j] is a binary variable indicating if a transaction occurs between i and j
+
+        prob += lpSum(y[i, j] for i in self.debtors for j in self.creditors)  # objective function is minimizing sum of y, the number of transactions
+
+        for i in self.debtors:
+            prob += lpSum(x[i, j] for j in self.creditors) == -self.balances[i]   # ensuring all debts are paid
+        
+        for j in self.creditors:
+            prob += lpSum(x[i, j] for i in self.debtors) == self.balances[j]   # ensuring all credits are fulfilled
+
+        M = sum(abs(self.balances[bal]) for bal in self.balances)
+
+        for i in self.debtors:
+            for j in self.creditors:
+                prob += x[i, j] <= M * y[i, j]      # linking x , y: if x>0, then y must be 1
+
+        prob.solve(PULP_CBC_CMD(msg=False))
+
+        transactions = []
+        for i in self.debtors:
+            for j in self.creditors:
+                if value(x[i, j]) > 0:
+                    transactions.append([i, j, value(x[i, j])]) 
         return transactions
 
 
+def num_transactions(graph):
+    num = 0
+    for i, j in graph.items():
+        num += len(graph[i])
+    return num
+
+def construct_transactions(nodes, edges):
+    transactions = []
+    for i in range(edges+1):
+        transactions.append([random.randint(0, nodes), random.randint(0, nodes), random.randint(0, 200)])
+    return transactions
 
 
-Graph= Construct_graph(transactions_6)
+def centrality_calculation(graph, balances):
+    graph = nx.DiGraph(graph)
+    cen = (nx.in_degree_centrality(graph))
+    sorted_cen = sorted(cen.items(), key = lambda x : x[1], reverse = True)
+    high_cen_nodes = []
+    for node, cent in sorted_cen:
+        if cent == sorted_cen[0][1]:
+            high_cen_nodes.append(node)
+
+    high_bal = math.inf
+    for node in high_cen_nodes:
+        node_bal = balances[node]
+        highest = max(node_bal, high_bal)
+    print(high_cen_nodes)
+
+
+
+Graph= Construct_graph(transactions_5)
 Graph.construct_transaction_dict()
 graph_1 = Graph.convert_to_dict_graph()
-print('initial graph', graph_1, '\n')
+print('initial graph', num_transactions(graph_1))
 
 Cycle = Delete_Cycle(graph_1)
 graph_2 = Cycle.answer()
-print('graph with no cycle', graph_2, '\n')
+print('graph with no cycle', num_transactions(graph_2))
 
 graph_2_converted = Graph.convert_dict_to_array(graph_2)
 MF = Max_Flow_Simplification(graph_2_converted)
 graph_3= MF.update_graph()
 graph_3_converted = Graph.convert_array_to_dict(graph_3)
-print('after max flow simplification', graph_3_converted, '\n')
+print('after max flow simplification', num_transactions(graph_3_converted))
 
 greedy= Greedy_Debt_Simplification(graph_2)
 graph_4 = greedy.answer()
-print('after greedy simplification', graph_4)
+#print(greedy.amounts)
+print('after greedy simplification', num_transactions(graph_4))
 
 lp = Linear_Programming_Simplification(graph_2_converted, greedy.amounts)
-trans = lp.LP()
-New_graph = Construct_graph(trans)
+trans_lp = lp.LP()
+New_graph = Construct_graph(trans_lp)
 New_graph.construct_transaction_dict()
 graph_5 = New_graph.convert_to_dict_graph()
-print('linear programming answer', graph_5)
+print('linear programming answer', num_transactions(graph_5))
+
+print(graph_4)
+centrality_calculation(graph_4)
+
+"""milp = Linear_Programming_Simplification(graph_4, greedy.amounts)
+trans_milp = milp.MILP()
+New_graph_2 = Construct_graph(trans_milp)
+New_graph_2.construct_transaction_dict()
+graph_6 = New_graph_2.convert_to_dict_graph()
+print('MILP answer', num_transactions(graph_6))"""
