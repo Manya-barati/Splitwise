@@ -296,6 +296,19 @@ def visualize_expenses_in_category(group):
     plt.title("expenses in each category (total value of each category)")
     plt.show()
 
+# pie chart for each person expenses by category (value)
+def visualize_expenses_for_person(person, group_list):
+    person_category_totals = exp_for_one_in_cat(person, group_list)
+    labels = [key for key, value in person_category_totals.items() if value > 0]
+    values = [value for value in person_category_totals.values() if value > 0]
+    # generation of unrepeated colors for each category
+    colors = plt.cm.tab20(np.linspace(0, 1, labels))
+
+    plt.figure(figsize=(8, 6))
+    plt.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
+    plt.title(f"expenses of {person} in each category (total value of each category)")
+    plt.show()
+
 # bar chart for last week (for a single group)
 # 1. separating expenses of each day
 def each_day_exp(group_list):
