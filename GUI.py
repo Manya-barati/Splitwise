@@ -4,6 +4,12 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from Def_of_classes import Group, Expenses, Friend
 import pandas as pd
+from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification
+import networkx as nx
+import matplotlib.pyplot as plt
+from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph
+
+
 
 group_dict={}
 group_names="files\\group_names.txt"
@@ -80,15 +86,10 @@ def new_group_page():
     page_1.pack_forget()
     add_group_page.pack()
 
-def on_item_select(event):
-    selected_item = group_table.focus()
-    item_values = group_table.item(selected_item, "values")
-    #print(f"Selected Item: {item_values}")
-    if item_values:
-        details_pagee(item_values)
+
 #to be fixed
-def details_pagee(item_values):
-    global file_path,details_page
+def details_page(item_values):
+    global file_path
     page_1.pack_forget()
 
     name=item_values[1]
@@ -121,7 +122,6 @@ def details_pagee(item_values):
     f_tabl(file_path)
 
     exadd_friend_page.pack()
-    #details_page.pack()
 
 def switch_back_to_main(current_frame):
     current_frame.pack_forget()
@@ -134,11 +134,6 @@ def on_item_select(event):
     if selected_item_details:
         details_button.config(state=tk.NORMAL)
 
-def show_details_page_from_button():
-    if selected_item_details:
-        details_pagee(selected_item_details)
-    else:
-        print("No item selected!")
 
 def add_name_(path,friend_entry, friend_name ):
     global error_label6, error_label7
@@ -168,7 +163,7 @@ def add_name_(path,friend_entry, friend_name ):
                 g.write(first_line)
                 for line in lines[1:]:
                     g.write('\n'+line.strip()+'0'+',')
-        details_pagee(selected_item_details)
+        details_page(selected_item_details)
         try:
           error_label6.place_forget()
         except:
@@ -294,7 +289,7 @@ def add_friend_denovo(page_to_pack):
     friend_name=tk.StringVar()
     friend_entry=ttk.Entry(master=add_friend_name,textvariable=friend_name)
     friend_entry.place(x=220, y=50)
-    friend_name_label=ttk.Label(master=add_friend_name,text="Please type the name")
+    friend_name_label=ttk.Label(master=add_friend_name,text="Please enter the name")
     friend_name_label.place(x=70, y=50)
     add_name_button=ttk.Button(master=add_friend_name,text='Add',command= lambda: add_name(friend_entry, friend_name))
     add_name_button.place(x=220, y=200)
@@ -454,7 +449,7 @@ def ex_table(path):
     for i in range(len(list(df.index))):
         number=i+1
         elements=list(df.index)[i].split('_')
-        print(elements)
+        #print(elements)
         name= elements[0]
         ex_type= elements[2]
         amount= elements[1]
@@ -482,7 +477,7 @@ def ex_tabl(path):
     for i in range(len(list(df.index))):
         number=i+1
         elements=list(df.index)[i].split('_')
-        print(elements)
+        #print(elements)
         name= elements[0]
         ex_type= elements[2]
         amount= elements[1]
@@ -490,15 +485,12 @@ def ex_tabl(path):
         expense_tabl.insert(parent='', index=tk.END, values=(number, name, ex_type, amount, payer))
     expense_tabl.pack(fill=tk.BOTH, expand=True)        
 
-details_page=ttk.Frame(window, width= 700, height=700)
-details_page.pack_propagate(False)
-
 selected_item_details = None
 
 page_1=ttk.Frame(window, width= 700, height=500)
 page_1.pack_propagate(False)
 
-details_button = ttk.Button(master=page_1, text="Details", state=tk.DISABLED, command=show_details_page_from_button)
+details_button = ttk.Button(master=page_1, text="Details", state=tk.DISABLED, command= lambda : details_page(selected_item_details))
 details_button.place(x=300, y=350)
 
 new_button=ttk.Button(master= page_1, text='New Group', command= new_group_page)
@@ -523,8 +515,42 @@ g_table()
 group_table_frame.place(x=50, y=100)
 page_1.pack()
 
-def calculate_trans():
-    pass
+def calculate_trans(page_to_forget,path):
+    df= pd.read_csv(path)
+    df = df.iloc[:, :-1]
+    df = df.set_index(df.columns[0])
+
+    transaction_list = []
+    # Iterate over the DataFrame rows
+    for idx, row in df.iterrows():
+        # Split the index to extract details
+        split_idx = idx.split('_')
+        payer = split_idx[-1]
+        expense_amount = float(split_idx[1])
+        
+        # Iterate over the row's cells
+        for col, value in row.items():
+            if value != 0 and col != payer:
+                # Calculate the amount
+                amount = value * expense_amount
+                # Append the transaction details to the list
+                transaction_list.append([col, payer, amount])
+    Graph= Construct_graph(transaction_list)
+    Graph.construct_transaction_dict()
+    print(Graph.trans_dict)
+    graph_1 = Graph.convert_to_dict_graph()
+    #print('initial graph', graph_1, '\n')
+
+    Cycle = Delete_Cycle(graph_1)
+    graph_2 = Cycle.answer()
+
+    greedy= Greedy_Debt_Simplification(graph_2)
+    graph_4 = greedy.answer()
+
+    visualize_graph(graph_4)
+
+    page_to_forget.pack_forget()
+    result_page.pack()
 
 
 
@@ -690,7 +716,7 @@ main_page_button.place(x=335,y=600)
 add_expense_button=ttk.Button(master= expense_list_page, text='Add Expenses', command= lambda: expense_page_func(expense_list_page,expense_page1)  )
 add_expense_button.place(x=300,y=550)
 
-calculate_button=ttk.Button(master= expense_list_page, text='Caluclate Transactions', command= calculate_trans  )
+calculate_button=ttk.Button(master= expense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(expense_list_page, f"files//{group_nam}_{selected_gtype}.csv" ) )
 calculate_button.place(x=300,y=500)
 
 
@@ -707,7 +733,14 @@ main_page_button.place(x=335,y=550)
 add_expense_button=ttk.Button(master= exexpense_list_page, text='Add Expenses', command= lambda: expense_page_func(exexpense_list_page,expense_page2)  )
 add_expense_button.place(x=330,y=500)
 
-excalculate_button=ttk.Button(master= exexpense_list_page, text='Caluclate Transactions', command= calculate_trans  )
+excalculate_button=ttk.Button(master= exexpense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(exexpense_list_page, file_path)  )
 excalculate_button.place(x=300,y=450)
+
+result_page=ttk.Frame(window, width= 700, height=700)
+result_page.pack_propagate(False)
+
+main_page_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
+main_page_button.place(x=300,y=600)
+
 
 window.mainloop()

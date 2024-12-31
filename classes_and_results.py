@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import heapq as hq
 from datetime import date
 import tkinter as tk
@@ -7,7 +8,20 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 import networkx as nx
 import matplotlib.pyplot as plt
+from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification
 
+
+transactions_1= [[0,0,2], [0,1,63], [0,3,85], [0,4,49], [1,1,76], [1,4,27], [2,3,17], [3,0,73], [3,1,32], [3,2,50], [3,3,6], [3,4,71], [4,1,86], [4,4,10]] 
+transactions_2 = [['A', 'B', 500], ['B', 'C', 300], ['C', 'D', 200], ['C', 'A', 50], ['D', 'A', 100], ['E', 'F', 400], ['F', 'E', 300]]
+transactions_3 = [[0, 1, 10], [0, 2, 20], [1, 2, 5], [1, 3, 10], [2, 3, 15]]
+transactions_4 = [[1, 2, 20], [1, 4, 10], [1, 8, 20], [3, 5, 10], [3, 6, 10], [7, 4, 30], [7, 8, 10], [7, 10, 20], [9, 2, 10], [9, 12, 10], [11, 5, 10]]
+# 11 initial transactions, max flow:11 , greedy: 8 
+transactions_5 = [[1, 2, 15], [1, 4, 20], [1, 8, 15], [1, 10, 10], [2, 5, 5 ], [2, 12, 10], [3, 5, 5], [3, 6, 5], [3, 10, 10],\
+                  [4, 5, 5], [4, 8, 20], [4, 12, 15], [7, 4, 20], [7, 8, 10], [7, 10, 10], [7, 5, 10], [9, 2, 5], [9, 12, 5], [11, 5, 10], [11, 4, 5]]
+# 20 initial transactions, max flow: 15, greedy: 9
+transactions_6 = [[1, 2, 15], [1, 3, 10], [1, 4, 10], [1, 6, 15], [1, 8, 10], [2, 4, 5], [2, 5, 5], [2, 12, 10], [3, 5, 5], [3, 6, 10], [3, 10, 5]\
+                  , [3, 8, 5], [4, 5, 5], [4, 8, 20], [4, 10, 5], [4, 12, 10], [5, 6, 5], [6, 7, 10], [7, 4, 10], [7, 8, 10], [7, 10, 5], \
+                    [7, 5, 5], [9, 2, 5], [9, 6, 5], [9, 12, 5], [11, 5, 10], [11, 4, 5]]
 
 class Group():
     def __init__(self, group_name, group_type):
@@ -63,7 +77,7 @@ class Group():
                 person_ind = 0
             else:
                 person_ind = ex.owers.index(person) + 1
-            e_person_amount.append(ex.value * (ex.shares_dict[person_ind] / ex.value)
+            e_person_amount.append(ex.value * (ex.shares_dict[person_ind] / ex.value))
         return sum(e_person_amount)
 
     def search_person(self, person):
@@ -119,7 +133,7 @@ class Expense():
             self.shares_dict[ower] = self.for_one[i+1]
 
     def to_graph(self):
-        for i, ower in enumerate(owers):
+        for i, ower in enumerate(self.owers):
             self.graph.append([self.payer, ower, self.for_one[i+1]])
         return self.graph
 # an example to show if visualization works
@@ -176,12 +190,33 @@ def visualize_graph(graph):
     nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels)
     plt.show()
 
-print(graph)
-visualize_graph(graph)
+
+Graph= Construct_graph(transactions_6)
+Graph.construct_transaction_dict()
+print(Graph.trans_dict)
+graph_1 = Graph.convert_to_dict_graph()
+#print('initial graph', graph_1, '\n')
+
+Cycle = Delete_Cycle(graph_1)
+graph_2 = Cycle.answer()
+#print('graph with no cycle', graph_2, '\n')
+
+graph_2_converted = Graph.convert_dict_to_array(graph_2)
+MF = Max_Flow_Simplification(graph_2_converted)
+graph_3= MF.update_graph()
+graph_3_converted = Graph.convert_array_to_dict(graph_3)
+#print('after max flow simplification', graph_3_converted, '\n')
+
+greedy= Greedy_Debt_Simplification(graph_2)
+graph_4 = greedy.answer()
+#print('after greedy simplification', graph_4)
+
+#print(graph)
+visualize_graph(graph_4)
 
 # Total debts visualization by Pie chart
 
-def total_debts(garph):
+def total_debts(graph):
     total_debts = {}
     for payer, ower in graph.items():
         for ower, amount in ower.items():
@@ -198,7 +233,7 @@ def visualize_pie_chart(total_debts):
     plt.title('Portion of everyone in Unpaid debts')
     plt.show()
 
-visualize_pie_chart(total_debts(graph))
+visualize_pie_chart(total_debts(graph_4))
 
 
 # Chart of shares
