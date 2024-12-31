@@ -591,6 +591,58 @@ def ex_tabl(path):
         expense_tabl.insert(parent='', index=tk.END, values=(number, name, ex_type, amount, payer))
     expense_tabl.pack(fill=tk.BOTH, expand=True)        
 
+def search_items(path):
+    
+    if path== file_path:
+        query = exsearch_var.get().lower()
+        exp_table=expense_tabl
+    else:
+        query = search_var.get().lower()
+        exp_table=expense_table
+    df= pd.read_csv(path)
+    df = df.iloc[:, :-1]
+    df = df.set_index(df.columns[0])
+
+    idx_list=[]
+    for index in df.index:
+        if query in str(index).lower():
+            ex_name=index.split("_")[0]
+            idx_list.append(ex_name)
+            pass #highlighting
+    for coldex in df.columns:
+        if query in str(coldex).lower():
+            for index in df.index:
+                if df.loc[index,coldex]!=0:
+                    ex_name=index.split("_")[0]
+                    if ex_name not in idx_list:
+                        idx_list.append(ex_name)
+                    pass #highlighting rows
+   
+    for child in exp_table.get_children():
+        exp_table.item(child, tags="")
+        for match in idx_list:
+            value=exp_table.item(child, 'values')
+            if match in value:
+                exp_table.item(child, tags=("highlight",))
+
+    exp_table.tag_configure("highlight", background="lightblue")
+
+def reset_search(path):
+    if path== file_path:
+        exsearch_var.set("")
+        exp_table=expense_tabl
+    else:
+        search_var.set("")
+        exp_table=expense_table
+    search_var.set("")
+    exsearch_var.set("")
+      # Clear the search bar
+    for child in exp_table.get_children():
+        exp_table.item(child, tags="")  # Clear all tags
+    exp_table.tag_configure("highlight", background="white")  # Reset background
+
+
+
 selected_item_details = None
 
 page_1=ttk.Frame(window, width= 700, height=500)
@@ -811,10 +863,7 @@ expense_list_page=ttk.Frame(master=window, width= 700, height=700)
 expense_list_page.pack_propagate(False)
 
 expense_table_frame=ttk.Frame(master=expense_list_page,width=300, height=400)
-
 expense_table_frame.place(x=50, y=100)
-
-
 
 main_page_button=ttk.Button(master= expense_list_page, text='Main Page', command= lambda: return_to_mainpage(expense_list_page))
 main_page_button.place(x=335,y=600)
@@ -825,6 +874,15 @@ add_expense_button.place(x=300,y=550)
 calculate_button=ttk.Button(master= expense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(expense_list_page, f"files//{group_nam}_{selected_gtype}.csv" ) )
 calculate_button.place(x=300,y=500)
 
+search_var = tk.StringVar()
+search_bar = ttk.Entry(expense_list_page, textvariable=search_var, width=30)
+search_bar.place(x=300, y=10)
+
+search_button = ttk.Button(expense_list_page, text="Search", command=lambda : search_items(f"files//{group_nam}_{selected_gtype}.csv"))
+search_button.place(x=300, y=10)
+
+reset_button = ttk.Button(expense_list_page, text="Reset", command= lambda : reset_search(f"files//{group_nam}_{selected_gtype}.csv"))
+reset_button.place(x=350, y=10)
 
 #existing group expenses
 exexpense_list_page=ttk.Frame(master=window, width= 700, height=700)
@@ -842,11 +900,22 @@ add_expense_button.place(x=330,y=500)
 excalculate_button=ttk.Button(master= exexpense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(exexpense_list_page, file_path)  )
 excalculate_button.place(x=300,y=450)
 
+exsearch_var = tk.StringVar()
+search_bar = ttk.Entry(exexpense_list_page, textvariable=exsearch_var, width=20)
+search_bar.place(x=280, y=10)
+
+search_button = ttk.Button(exexpense_list_page, text="Search", command= lambda : search_items(file_path))
+search_button.place(x=400, y=10)
+
+reset_button = ttk.Button(exexpense_list_page, text="Reset", command= lambda : reset_search(file_path))
+reset_button.place(x=480, y=10)
+
 result_page=ttk.Frame(window, width= 700, height=700)
 result_page.pack_propagate(False)
 
 main_page_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
 main_page_button.place(x=300,y=600)
+
 
 
 window.mainloop()
