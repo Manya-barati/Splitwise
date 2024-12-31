@@ -8,7 +8,25 @@ from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplificati
 import networkx as nx
 import matplotlib.pyplot as plt
 from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph
+import sqlite3
 
+
+conn = sqlite3.connect('login database')  # creating a database
+cursor = conn.cursor()     # a curser is used to execute sqlite3 commands
+cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                                                    username TEXT NOT NULL UNIQUE, 
+                                                    password TEXT NOT NULL)''')      # creating a table for users data
+
+#cursor.execute('INSERT INTO users(username, password) VALUES (?, ?)', ('John', 'password123'))     # inserting the data
+"""  cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', ('John', 'password123'))
+user = cursor.fetchone()   # fetch a single matching row
+try: 
+    cursor.execute('INSERT INTO users(username, password) VALUES (?, ?)', ('John', '987'))
+    conn.commit()
+except sqlite3.IntegrityError:
+    print('username already exists!')
+
+conn.close()"""
 
 
 group_dict={}
@@ -80,6 +98,94 @@ ed_icon=ImageTk.PhotoImage(education)
 gi_icon=ImageTk.PhotoImage(gift)
 bu_icon=ImageTk.PhotoImage(business)
 ch_icon=ImageTk.PhotoImage(charity)
+
+def login_page():
+    global login_window, error_label_invalid
+    login_window=ttk.Frame(window, width= 700, height=500)
+    login_window.pack_propagate(False)
+
+    username_label=ttk.Label(login_window, text='Username:')
+    username_label.place(x=230,y=105)
+    username=tk.StringVar()
+    username_entry = ttk.Entry(master=login_window,textvariable=username)
+    username_entry.place(x=310, y=100)
+
+    password_label=ttk.Label(login_window, text='Password:')
+    password_label.place(x=230,y=205)
+    password=tk.StringVar()
+    password_entry = ttk.Entry(master=login_window,textvariable=password)
+    password_entry.place(x=310, y=200)    
+
+    sign_in_button = ttk.Button(login_window, text= 'sign in', command= lambda: check_sign_in(username, password))
+    sign_in_button.place(x= 318, y= 290)
+
+    sign_up_label = ttk.Label(login_window, text = "don't have an account?")
+    sign_up_label.place(x= 230, y= 400)
+    sign_up_button = ttk.Button(login_window, text= 'create one', command= lambda: sign_up_page())
+    sign_up_button.place(x= 360, y= 394)
+
+    error_label_invalid=ttk.Label(login_window, text='', foreground = 'red')
+    error_label_invalid.place(x=280, y=335)
+
+    login_window.pack()
+
+def check_sign_in(username, password):
+    cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username.get(), password.get()))
+    user = cursor.fetchone()
+    if user:
+        login_window.pack_forget()
+        page_1.pack()
+    else:
+        error_label_invalid.config(text = 'Invalid username or password')
+
+
+login_page()
+
+def sign_up_page():
+    global signup_window, error_label_signup
+    login_window.pack_forget()
+    signup_window = ttk.Frame(window, width= 700, height=500)
+    signup_window.pack_propagate(False)
+    
+    name_label=ttk.Label(signup_window, text='Name:')
+    name_label.place(x=230,y=85)
+    name=tk.StringVar()
+    name_entry = ttk.Entry(signup_window, textvariable=name)
+    name_entry.place(x=310, y=80)
+
+    username_label=ttk.Label(signup_window, text='Username:')
+    username_label.place(x=230,y=185)
+    username=tk.StringVar()
+    username_entry = ttk.Entry(signup_window, textvariable=username)
+    username_entry.place(x=310, y=180)
+
+    password_label=ttk.Label(signup_window, text='Password:')
+    password_label.place(x=230,y=285)
+    password=tk.StringVar()
+    password_entry = ttk.Entry(master=signup_window, textvariable=password)
+    password_entry.place(x=310, y=280)
+
+    rep_password_label=ttk.Label(signup_window, text='Repeat password:')
+    rep_password_label.place(x=200,y=385)
+    rep_password=tk.StringVar()
+    rep_password_entry = ttk.Entry(master=signup_window, textvariable=rep_password)
+    rep_password_entry.place(x=310, y=380)
+
+    error_label_signup = ttk.Label(signup_window , text='', foreground = 'red')
+    error_label_signup.place(x= 310, y= 480)
+
+    create_button = ttk.Button(signup_window, text= 'Create', command= lambda: check_acount_creation(username, password))
+    create_button.place(x= 340, y=450 )
+
+    signup_window.pack()
+
+def check_acount_creation(username, password):
+    try: 
+        cursor.execute('INSERT INTO users(username, password) VALUES (?, ?)', (username.get(), password.get()))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        error_label_signup.config(text = 'Username already exists!')
+
 
 
 def new_group_page():
@@ -513,7 +619,7 @@ def g_table():
     group_table.pack()
 g_table()
 group_table_frame.place(x=50, y=100)
-page_1.pack()
+#page_1.pack()
 
 def calculate_trans(page_to_forget,path):
     df= pd.read_csv(path)
