@@ -679,14 +679,12 @@ def calculate_trans(page_to_forget,path):
     df = df.set_index(df.columns[0])
 
     transaction_list = []
-    # Iterate over the DataFrame rows
+    
     for idx, row in df.iterrows():
-        # Split the index to extract details
         split_idx = idx.split('_')
         payer = split_idx[-1]
         expense_amount = float(split_idx[1])
         
-        # Iterate over the row's cells
         for col, value in row.items():
             if value != 0 and col != payer:
                 # Calculate the amount
@@ -695,7 +693,7 @@ def calculate_trans(page_to_forget,path):
                 transaction_list.append([col, payer, amount])
     Graph= Construct_graph(transaction_list)
     Graph.construct_transaction_dict()
-    print(Graph.trans_dict)
+    #print(Graph.trans_dict)
     graph_1 = Graph.convert_to_dict_graph()
     #print('initial graph', graph_1, '\n')
 
@@ -705,13 +703,56 @@ def calculate_trans(page_to_forget,path):
     greedy= Greedy_Debt_Simplification(graph_2)
     graph_4 = greedy.answer()
 
-    visualize_graph(graph_4)
+    list_tr=convert_dict_to_list(graph_4)
+    create_transaction_ui(result_page,list_tr)
+
+    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: return_to_mainpage(result_page))
+    show_graph_button.place(x=200,y=450)
+
+    balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: return_to_mainpage(result_page))
+    balances_button.place(x=400,y=450)
+
+    exp_chart_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
+    exp_chart_button.place(x=200,y=550)
+
+    unpaid_chart_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
+    unpaid_chart_button.place(x=400,y=550)
+
 
     page_to_forget.pack_forget()
     result_page.pack()
 
+def convert_dict_to_list(in_dict):
+    tr_list=[]
+    for key,value in in_dict.items():
+        if value:
+            for ikey,ivalue in value.items():
+                tr_list.append([key,ikey,ivalue])
+    return tr_list
 
+def create_transaction_ui(root, transactions):
+    canvas = ttk.Canvas(root, width=400, height=300, bg="white")
+    canvas.place(x=75, y=10)
 
+    y_offset = 50  # Initial y-coordinate for arrows
+    row=1
+    for transaction in transactions:
+        person1, person2, value = transaction
+        
+        # Draw arrow and label
+        x1, y1 = 100, y_offset
+        x2, y2 = 300, y_offset
+        canvas.create_line(x1, y1, x2, y2, arrow=tk.LAST)
+        canvas.create_text((x1 + x2) / 2, y1 - 10, text="{:0.2f}".format(value), fill="blue")
+        canvas.create_text(x1 - 50, y1, text=person1, anchor="e", fill="black")
+        canvas.create_text(x2 + 50, y2, text=person2, anchor="w", fill="black")
+        
+        # creates extra buttons!!!
+        btn = ttk.Button(root, text="Pay")
+        btn.place(x=x2 + 250, y=y_offset - 5)
+        
+        y_offset += 50
+        row+=1
 
 
 add_group_page=ttk.Frame(window, width= 700, height=500)
