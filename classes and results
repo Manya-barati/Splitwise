@@ -12,6 +12,62 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
+API_KEY = "7790bd062ddc4e368a338a0c7cd596cb"
+API_URL = "https://openexchangerates.org/api/latest.json"
+class CurrencyConversion:
+    def __init__(self, api_url, api_key):
+        self.api_url = api_url
+        self.api_key = api_key
+        self.exchange_rates = {}
+        self.historical_rates = {}
+
+    def get_rates(self):
+        try:
+            output = requests.get(f"{self.api_url}?app_id={self.api_key}")
+            if output.status_code == 200:
+                data = output.json()
+                self.exchange_rates = data.get('rates', {})
+                if "IRR" not in self.exchange_rates:
+                    print("Rial is Not Supported")
+                if "USDT" not in self.exchange_rates:
+                    print("Tehter is Not Supported")
+            else:
+                print(f"Error: {output.status_code},{output.text}")
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def get_historical_rates(self, date):
+        if date in self.historical_rates.items():
+            return self.historical_rates[date]
+
+        historical_url = f"https://openexchangerates.org/api/historical/{date}.json"
+        try:
+            output = requests.get(f"{historical_url}?app_id={self.api_key}")
+            if output.status_code == 200:
+                data = output.json()
+                rates = data.get('rates', {})
+                self.historical_rates[date] = rates
+                return rates
+            else:
+                print(f"Error fetching historical rates for {date}: {response.status_code}, {response.text}")
+                return {}
+        except Exception as e:
+            print(f"Error fetching historical rates for {date}: {e}")
+            return {}
+
+    def convert_currency(self, value, from_curr, to_curr, date=None):
+        if from_curr == to_curr:
+            return value
+        rates = self.exchange_rates
+        if date: # date should be str
+            rates = self.get_historical_rates(date)
+        if from_curr not in rates or to_curr not in rates:
+            raise ValueError("Currency Not Supported")
+        return value / rates[from_curr] * rates[to_curr]
+
+curr_convertor = CurrencyConversion(api_url = API_URL, api_key= API_KEY)
+curr_convertor.get_rates()
+
 
 class Group():
     def __init__(self, group_name, group_type):
