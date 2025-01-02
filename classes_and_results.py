@@ -1,27 +1,14 @@
 import numpy as np
-import random
 import heapq as hq
-from datetime import date
+from datetime import date, timedelta
+import random
 import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 import networkx as nx
 import matplotlib.pyplot as plt
-from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification
 
-
-transactions_1= [[0,0,2], [0,1,63], [0,3,85], [0,4,49], [1,1,76], [1,4,27], [2,3,17], [3,0,73], [3,1,32], [3,2,50], [3,3,6], [3,4,71], [4,1,86], [4,4,10]] 
-transactions_2 = [['A', 'B', 500], ['B', 'C', 300], ['C', 'D', 200], ['C', 'A', 50], ['D', 'A', 100], ['E', 'F', 400], ['F', 'E', 300]]
-transactions_3 = [[0, 1, 10], [0, 2, 20], [1, 2, 5], [1, 3, 10], [2, 3, 15]]
-transactions_4 = [[1, 2, 20], [1, 4, 10], [1, 8, 20], [3, 5, 10], [3, 6, 10], [7, 4, 30], [7, 8, 10], [7, 10, 20], [9, 2, 10], [9, 12, 10], [11, 5, 10]]
-# 11 initial transactions, max flow:11 , greedy: 8 
-transactions_5 = [[1, 2, 15], [1, 4, 20], [1, 8, 15], [1, 10, 10], [2, 5, 5 ], [2, 12, 10], [3, 5, 5], [3, 6, 5], [3, 10, 10],\
-                  [4, 5, 5], [4, 8, 20], [4, 12, 15], [7, 4, 20], [7, 8, 10], [7, 10, 10], [7, 5, 10], [9, 2, 5], [9, 12, 5], [11, 5, 10], [11, 4, 5]]
-# 20 initial transactions, max flow: 15, greedy: 9
-transactions_6 = [[1, 2, 15], [1, 3, 10], [1, 4, 10], [1, 6, 15], [1, 8, 10], [2, 4, 5], [2, 5, 5], [2, 12, 10], [3, 5, 5], [3, 6, 10], [3, 10, 5]\
-                  , [3, 8, 5], [4, 5, 5], [4, 8, 20], [4, 10, 5], [4, 12, 10], [5, 6, 5], [6, 7, 10], [7, 4, 10], [7, 8, 10], [7, 10, 5], \
-                    [7, 5, 5], [9, 2, 5], [9, 6, 5], [9, 12, 5], [11, 5, 10], [11, 4, 5]]
 
 class Group():
     def __init__(self, group_name, group_type):
@@ -38,7 +25,8 @@ class Group():
     def add_expense(self, expense):
         self.expenses.append(expense)
         expense.calculate_shares()
-        self.day = date.today()
+        if self.day is None:
+            self.day = date.today()
         self.group_graph += expense.graph
         if expense.group_name not in self.groups:
             self.groups[expense.group_name] = expense.category
@@ -49,6 +37,15 @@ class Group():
             if person != expense.payer:
                 self.friends[person].money -= expense.for_one[i]
                 self.friends[expense.payer].money += expense.for_one[i]
+
+    def recurring_expense(self):
+        today = date.today()
+        if expense.recurring and expense.next <= today:
+            new_expense = Expense(name = expense.name, value = expense.value, payer = expense.payer, owers = expense.owers,
+                                  group_name= expense.group_name, category = expense.category, payment_method = expense.payment_method,
+                                  split_type = 'equal', shares = None, recurring = True, interval = expense.interval)
+            self.add_expense(new_expense)
+            expense.next = expense.calculate_next()
 
     def all_groups(self):
         return [group for group in self.groups]
@@ -70,7 +67,7 @@ class Group():
         return sum(e_amount)
 
     def total_person(self, person):
-        e_person = [expense for expense in self.expenses if expense.payer == person or person in expense.owers]
+        e_person = [expense for exp in self.expenses if expense.payer == person or person in expense.owers]
         e_person_amount = []
         for ex in e_person:
             if ex.payer == person:
@@ -86,8 +83,12 @@ class Group():
     def search_date(self, search_day):
         return [expense for expense in self.expenses if expense.day == search_day]
 
-def total_person_balance(graph, person):
-    return graph[person]
+    def expense_in_category(self):
+        all_cat = {category: 0 for category in Expense.ALLOWED_CATEGORIES}
+        for ex in self.expenses:
+            if ex.category in all_cat:
+                all_cat[ex.category] += expense.value
+        return all_cat
 
 class Friend():
     def __init__(self, name):
@@ -99,9 +100,11 @@ class Expense():
     ALLOWED_CATEGORIES = ("House", "Food", "Shopping", "Transportation", "Hobby", "Medicine", "Education", "Gifts", "Business", "Pets", "Charity")
     ALLOWED_PAYMENT_METHOD = ("cash", "credit_cards")
     ALLOWED_SPLIT_TYPE = ('equal', 'percentage', 'exact')
+    ALLOWED_INTERVALS = ("daily", "weekly", "monthly", "yearly")
     # payment methods = online -> show شماره کارت or لینک پرداخت از آپ, cash
 
-    def __init__(self, name, value, payer, owers, group_name, category, payment_method, split_type = 'equal', shares = None):
+    def __init__(self, name, value, payer, owers, group_name, category, payment_method, ex_date, split_type = 'equal',
+                 shares = None, recurring = False, interval = None):
         self.name = name
         self.value = value
         self.payer = payer
@@ -111,7 +114,10 @@ class Expense():
         self.group_name = group_name
         self.category = category
         self.payment_method = payment_method
-        self.day = None
+        self.day = ex_date
+        self.recurring = recurring
+        self.interval = interval
+        self.next = self.calculate_next()
         self.for_one = []
         self.graph = []
         self.shares_dict = {}
@@ -126,6 +132,18 @@ class Expense():
                 total_shares = sum(self.shares)
                 self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]
 
+    def calculate_next(self):
+        if self.recurring and self.interval:
+            if self.interval == 'daily':
+                return self.day + timedelta(days=1)
+            if self.interval == 'weekly':
+                return self.day + timedelta(weeks=1)
+            if self.interval == 'monthly':
+                return self.day + timedelta(days=30)
+            if self.interval == 'yearly':
+                return self.day + timedelta(days=365)
+            return None
+
     def shares_to_dict(self):
         self.calculate_shares()
         self.shares_dict[self.payer] = self.for_one[0]
@@ -136,8 +154,23 @@ class Expense():
         for i, ower in enumerate(self.owers):
             self.graph.append([self.payer, ower, self.for_one[i+1]])
         return self.graph
+
+
+def total_person_balance(graph, person):
+    return graph[person]
+
+
+def exp_for_one_in_cat(person, group_list):
+    for group in group_list:
+        exp_for_person = group.search_person(person)
+    for exp in exp_for_person:
+        all_cat = {category: 0 for category in Expense.ALLOWED_CATEGORIES}
+        if exp.category in all_cat:
+            all_cat[exp.category] += exp.value
+        return all_cat
+
 # an example to show if visualization works
-expense_1 = Expense(
+'''expense_1 = Expense(
     name ="Diner",
     value =300,
     payer="Maryam",
@@ -161,7 +194,7 @@ expense_3 = Expense(
 # List of expenses
 expenses = [expense_1, expense_2, expense_3]
 for expense in expenses:
-    expense.shares_to_dict()
+    expense.shares_to_dict()'''
 
 
 # graph visualization
@@ -190,29 +223,8 @@ def visualize_graph(graph):
     nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels)
     plt.show()
 
-
-Graph= Construct_graph(transactions_6)
-Graph.construct_transaction_dict()
-print(Graph.trans_dict)
-graph_1 = Graph.convert_to_dict_graph()
-#print('initial graph', graph_1, '\n')
-
-Cycle = Delete_Cycle(graph_1)
-graph_2 = Cycle.answer()
-#print('graph with no cycle', graph_2, '\n')
-
-graph_2_converted = Graph.convert_dict_to_array(graph_2)
-MF = Max_Flow_Simplification(graph_2_converted)
-graph_3= MF.update_graph()
-graph_3_converted = Graph.convert_array_to_dict(graph_3)
-#print('after max flow simplification', graph_3_converted, '\n')
-
-greedy= Greedy_Debt_Simplification(graph_2)
-graph_4 = greedy.answer()
-#print('after greedy simplification', graph_4)
-
-#print(graph)
-visualize_graph(graph_4)
+'''print(graph)
+visualize_graph(graph)'''
 
 # Total debts visualization by Pie chart
 
@@ -233,7 +245,7 @@ def visualize_pie_chart(total_debts):
     plt.title('Portion of everyone in Unpaid debts')
     plt.show()
 
-visualize_pie_chart(total_debts(graph_4))
+#visualize_pie_chart(total_debts(graph))
 
 
 # Chart of shares
@@ -268,4 +280,70 @@ def visualize_bar_chart(expenses):
     plt.show()
 
 
-visualize_bar_chart(expenses)
+#visualize_bar_chart(expenses)
+
+# pie chart for all expenses by category (value)
+
+def visualize_expenses_in_category(group):
+    category_totals = group.exp_in_cat()
+    labels = [key for key, value in category_totals.items() if value > 0]
+    values = [value for value in category_totals.values() if value > 0]
+    # generation of unrepeated colors for each category
+    colors = plt.cm.tab20(np.linspace(0, 1, labels))
+
+    plt.figure(figsize=(8, 6))
+    plt.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
+    plt.title("expenses in each category (total value of each category)")
+    plt.show()
+
+# pie chart for each person expenses by category (value)
+def visualize_expenses_for_person(person, group_list):
+    person_category_totals = exp_for_one_in_cat(person, group_list)
+    labels = [key for key, value in person_category_totals.items() if value > 0]
+    values = [value for value in person_category_totals.values() if value > 0]
+    # generation of unrepeated colors for each category
+    colors = plt.cm.tab20(np.linspace(0, 1, labels))
+
+    plt.figure(figsize=(8, 6))
+    plt.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
+    plt.title(f"expenses of {person} in each category (total value of each category)")
+    plt.show()
+
+# bar chart for last week (for a single group)
+# 1. separating expenses of each day
+def each_day_exp(group_list):
+    exp_in_day = {}
+    for gr in group_list:
+        for exp in gr.expenses:
+            for n in range(1, 8): # change the range if you want more days :) # not preferred :)
+                today = date.today()
+                day = today - timedelta(days=n)
+                if day not in exp_in_day:
+                    exp_in_day[day] = {}
+                if exp.category not in exp_in_day[day]:
+                    exp_in_day[day][exp.category] = 0
+                exp_in_day[day][exp.category] += exp.value
+    return exp_in_day
+# 2. visualize bar chart
+def visualize_last_week(group_list):
+    exp_in_day = each_day_exp(group_list) # keys : dates , values : cats in each dates
+    days = sorted(exp_in_day.keys()) # keys of this dict are dates
+    categories = set(cat for day in exp_in_day.values() for cat in day.keys()) # select all categories present
+    cat_colors = {cat : plt.cm.tab20(i / len(categories)) for i, cat in enumerate(categories)}
+
+    fig, ax = plt.subplots(figsize = (8,6))
+    start_heights = [0] * len(days)
+
+    for category in categories:
+        heights = [exp_in_day.get(category, 0 ) for day in days]
+        ax.bar([day.strftime("%Y-%m-%d") for day in days], heights, bottom =  start_heights, label = category, color = cat_colors[category])
+        start_heights = [start + height for start, height in zip(start_heights, heights)]
+
+    ax.set_title("Expense trends in last week", fontsize = 18)
+    ax.set_xlabel("Date", fontsize = 14)
+    ax.set_ylabel("Total expenses", fontsize = 14)
+    ax.legend(title = "Categories", loc =  "upper right")
+    ax.grid(axis = "y", linestyle = "--", alpha = 0.7)
+    
+    plt.tight_layout()
+    plt.show()

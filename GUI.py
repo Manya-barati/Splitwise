@@ -611,6 +611,58 @@ def ex_tabl(path):
         expense_tabl.insert(parent='', index=tk.END, values=(number, name, ex_type, amount, payer))
     expense_tabl.pack(fill=tk.BOTH, expand=True)        
 
+def search_items(path):
+    
+    if path== file_path:
+        query = exsearch_var.get().lower()
+        exp_table=expense_tabl
+    else:
+        query = search_var.get().lower()
+        exp_table=expense_table
+    df= pd.read_csv(path)
+    df = df.iloc[:, :-1]
+    df = df.set_index(df.columns[0])
+
+    idx_list=[]
+    for index in df.index:
+        if query in str(index).lower():
+            ex_name=index.split("_")[0]
+            idx_list.append(ex_name)
+            pass #highlighting
+    for coldex in df.columns:
+        if query in str(coldex).lower():
+            for index in df.index:
+                if df.loc[index,coldex]!=0:
+                    ex_name=index.split("_")[0]
+                    if ex_name not in idx_list:
+                        idx_list.append(ex_name)
+                    pass #highlighting rows
+   
+    for child in exp_table.get_children():
+        exp_table.item(child, tags="")
+        for match in idx_list:
+            value=exp_table.item(child, 'values')
+            if match in value:
+                exp_table.item(child, tags=("highlight",))
+
+    exp_table.tag_configure("highlight", background="lightblue")
+
+def reset_search(path):
+    if path== file_path:
+        exsearch_var.set("")
+        exp_table=expense_tabl
+    else:
+        search_var.set("")
+        exp_table=expense_table
+    search_var.set("")
+    exsearch_var.set("")
+      # Clear the search bar
+    for child in exp_table.get_children():
+        exp_table.item(child, tags="")  # Clear all tags
+    exp_table.tag_configure("highlight", background="white")  # Reset background
+
+
+
 selected_item_details = None
 
 page_1=ttk.Frame(window, width= 700, height=500)
@@ -648,14 +700,12 @@ def calculate_trans(page_to_forget,path):
     df = df.set_index(df.columns[0])
 
     transaction_list = []
-    # Iterate over the DataFrame rows
+    
     for idx, row in df.iterrows():
-        # Split the index to extract details
         split_idx = idx.split('_')
         payer = split_idx[-1]
         expense_amount = float(split_idx[1])
         
-        # Iterate over the row's cells
         for col, value in row.items():
             if value != 0 and col != payer:
                 # Calculate the amount
@@ -664,7 +714,7 @@ def calculate_trans(page_to_forget,path):
                 transaction_list.append([col, payer, amount])
     Graph= Construct_graph(transaction_list)
     Graph.construct_transaction_dict()
-    print(Graph.trans_dict)
+    #print(Graph.trans_dict)
     graph_1 = Graph.convert_to_dict_graph()
     #print('initial graph', graph_1, '\n')
 
@@ -674,13 +724,56 @@ def calculate_trans(page_to_forget,path):
     greedy= Greedy_Debt_Simplification(graph_2)
     graph_4 = greedy.answer()
 
-    visualize_graph(graph_4)
+    list_tr=convert_dict_to_list(graph_4)
+    create_transaction_ui(result_page,list_tr)
+
+    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: return_to_mainpage(result_page))
+    show_graph_button.place(x=200,y=450)
+
+    balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: return_to_mainpage(result_page))
+    balances_button.place(x=400,y=450)
+
+    exp_chart_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
+    exp_chart_button.place(x=200,y=550)
+
+    unpaid_chart_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
+    unpaid_chart_button.place(x=400,y=550)
+
 
     page_to_forget.pack_forget()
     result_page.pack()
 
+def convert_dict_to_list(in_dict):
+    tr_list=[]
+    for key,value in in_dict.items():
+        if value:
+            for ikey,ivalue in value.items():
+                tr_list.append([key,ikey,ivalue])
+    return tr_list
 
+def create_transaction_ui(root, transactions):
+    canvas = ttk.Canvas(root, width=400, height=300, bg="white")
+    canvas.place(x=75, y=10)
 
+    y_offset = 50  # Initial y-coordinate for arrows
+    row=1
+    for transaction in transactions:
+        person1, person2, value = transaction
+        
+        # Draw arrow and label
+        x1, y1 = 100, y_offset
+        x2, y2 = 300, y_offset
+        canvas.create_line(x1, y1, x2, y2, arrow=tk.LAST)
+        canvas.create_text((x1 + x2) / 2, y1 - 10, text="{:0.2f}".format(value), fill="blue")
+        canvas.create_text(x1 - 50, y1, text=person1, anchor="e", fill="black")
+        canvas.create_text(x2 + 50, y2, text=person2, anchor="w", fill="black")
+        
+        # creates extra buttons!!!
+        btn = ttk.Button(root, text="Pay")
+        btn.place(x=x2 + 250, y=y_offset - 5)
+        
+        y_offset += 50
+        row+=1
 
 
 add_group_page=ttk.Frame(window, width= 700, height=500)
@@ -838,10 +931,7 @@ expense_list_page=ttk.Frame(master=window, width= 700, height=700)
 expense_list_page.pack_propagate(False)
 
 expense_table_frame=ttk.Frame(master=expense_list_page,width=300, height=400)
-
 expense_table_frame.place(x=50, y=100)
-
-
 
 main_page_button=ttk.Button(master= expense_list_page, text='Main Page', command= lambda: return_to_mainpage(expense_list_page))
 main_page_button.place(x=335,y=600)
@@ -852,6 +942,15 @@ add_expense_button.place(x=300,y=550)
 calculate_button=ttk.Button(master= expense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(expense_list_page, f"files//{group_nam}_{selected_gtype}.csv" ) )
 calculate_button.place(x=300,y=500)
 
+search_var = tk.StringVar()
+search_bar = ttk.Entry(expense_list_page, textvariable=search_var, width=30)
+search_bar.place(x=300, y=10)
+
+search_button = ttk.Button(expense_list_page, text="Search", command=lambda : search_items(f"files//{group_nam}_{selected_gtype}.csv"))
+search_button.place(x=300, y=10)
+
+reset_button = ttk.Button(expense_list_page, text="Reset", command= lambda : reset_search(f"files//{group_nam}_{selected_gtype}.csv"))
+reset_button.place(x=350, y=10)
 
 #existing group expenses
 exexpense_list_page=ttk.Frame(master=window, width= 700, height=700)
@@ -869,11 +968,22 @@ add_expense_button.place(x=330,y=500)
 excalculate_button=ttk.Button(master= exexpense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(exexpense_list_page, file_path)  )
 excalculate_button.place(x=300,y=450)
 
+exsearch_var = tk.StringVar()
+search_bar = ttk.Entry(exexpense_list_page, textvariable=exsearch_var, width=20)
+search_bar.place(x=280, y=10)
+
+search_button = ttk.Button(exexpense_list_page, text="Search", command= lambda : search_items(file_path))
+search_button.place(x=400, y=10)
+
+reset_button = ttk.Button(exexpense_list_page, text="Reset", command= lambda : reset_search(file_path))
+reset_button.place(x=480, y=10)
+
 result_page=ttk.Frame(window, width= 700, height=700)
 result_page.pack_propagate(False)
 
 main_page_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
 main_page_button.place(x=300,y=600)
+
 
 
 window.mainloop()
