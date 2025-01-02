@@ -1,3 +1,4 @@
+import timeit
 import heapq as hq
 import numpy as np
 from scipy.optimize import linprog
@@ -7,7 +8,7 @@ import networkx as nx
 
 transactions_1= [[0,0,2], [0,1,63], [0,3,85], [0,4,49], [1,1,76], [1,4,27], [2,3,17], [3,0,73], [3,1,32], [3,2,50], [3,3,6], [3,4,71], [4,1,86], [4,4,10]] 
 transactions_2 = [['A', 'B', 500], ['B', 'C', 300], ['C', 'D', 200], ['C', 'A', 50], ['D', 'A', 100], ['E', 'F', 400], ['F', 'E', 300]]
-transactions_3 = [[0, 1, 10], [0, 2, 20], [1, 2, 5], [1, 3, 10], [2, 3, 15]]
+transactions_3 = [[0, 1, 10], [0, 1, 10], [0, 2, 20], [1, 2, 5], [1, 3, 10], [2, 3, 15], [1,2,10]]
 transactions_4 = [[1, 2, 20], [1, 4, 10], [1, 8, 20], [3, 5, 10], [3, 6, 10], [7, 4, 30], [7, 8, 10], [7, 10, 20], [9, 2, 10], [9, 12, 10], [11, 5, 10]]
 # 11 initial transactions, max flow:11 , greedy: 8 
 transactions_5 = [[1, 2, 15], [1, 4, 20], [1, 8, 15], [1, 10, 10], [2, 5, 5 ], [2, 12, 10], [3, 5, 5], [3, 6, 5], [3, 10, 10],\
@@ -42,7 +43,10 @@ class Construct_graph():
             if giver not in dict_graph:
                 dict_graph[giver]= {reciever:amount}
             else:
-                dict_graph[giver][reciever] = amount
+                if reciever in dict_graph[giver].keys():
+                    dict_graph[giver][reciever] += amount
+                else:
+                    dict_graph[giver][reciever] = amount
             if reciever not in dict_graph:
                 dict_graph[reciever] = {}
         return dict_graph
@@ -274,8 +278,7 @@ class Max_Flow_Simplification:
 
 
 class Linear_Programming_Simplification:
-    def __init__(self, graph, balances):
-        self.graph = graph
+    def __init__(self, balances):
         self.balances = balances
         self.creditors = [i for i, bal in self.balances.items() if bal > 0]
         self.debtors = [i for i, bal in self.balances.items() if bal < 0]
@@ -355,7 +358,7 @@ def num_transactions(graph):
 def construct_transactions(nodes, edges):
     transactions = []
     for i in range(edges+1):
-        transactions.append([random.randint(0, nodes), random.randint(0, nodes), random.randint(0, 200)])
+        transactions.append([random.randint(0, nodes), random.randint(0, nodes), random.randint(1, 200)])
     return transactions
 
 
@@ -368,15 +371,87 @@ def centrality_calculation(graph, balances):
         if cent == sorted_cen[0][1]:
             high_cen_nodes.append(node)
 
-    high_bal = math.inf
+    center = high_cen_nodes[0]
+    high_bal = -float('inf')
     for node in high_cen_nodes:
         node_bal = balances[node]
-        highest = max(node_bal, high_bal)
-    print(high_cen_nodes)
+        high_bal = max(node_bal, high_bal)
+    center = list(balances.keys())[list(balances.values()).index(high_bal)]
+    return center
+    
+transactions = construct_transactions(300, 600)
 
+def final_answer(transactions):
+    Graph= Construct_graph(transactions)
+    Graph.construct_transaction_dict()
+    init_dict_graph = Graph.convert_to_dict_graph()
+    Cycle = Delete_Cycle(init_dict_graph)
+    graph_no_cycle = Cycle.answer()
 
+    greedy= Greedy_Debt_Simplification(graph_no_cycle)
+    greedy.calculate_amount()
+    balances = greedy.amounts
 
-Graph= Construct_graph(transactions_5)
+    n_nodes = len(graph_no_cycle)
+    n_edges = num_transactions(graph_no_cycle)
+
+    # use mixed integer linear programming if the number of nodes is less than 12. it gives the optimum answer and is fast enough with samll graphs
+    if n_nodes <= 12:
+        milp = Linear_Programming_Simplification(balances)
+        trans_milp = milp.MILP()
+        New_graph = Construct_graph(trans_milp)
+        final_graph = New_graph.convert_to_dict_graph()
+        print('MILP used')
+    
+    else:
+        # if the number of edges is samller than half the number of nodes (sparse graphs) max flow probably works better than greedy. 
+        #for graphs larger than 500 nodes, max flow is computationaly expensive.
+        if n_edges <= int((n_nodes//2)+5) and n_nodes <= 500:
+
+            # perform max flow simplification
+            dict_graph = Graph.convert_dict_to_array(graph_no_cycle)
+            MF = Max_Flow_Simplification(dict_graph)
+            semi_final_graph = MF.update_graph()
+            semi_final_1 = Graph.convert_array_to_dict(semi_final_graph)
+            semi_final_1_n_edges = num_transactions(semi_final_1)
+
+            # perform greedy simplification
+            semi_final_2 = greedy.answer()
+            semi_final_2_n_edges = num_transactions(semi_final_2)
+
+            # choose the best answer:
+            if semi_final_1_n_edges < semi_final_2_n_edges:
+                final_graph = semi_final_1
+                print('max flow used')
+            else:
+                final_graph = semi_final_2
+                print('greedy used')
+        
+        else:
+            final_graph = greedy.answer()
+            print('else greedy is used')
+
+    # sometimes linear programing can give good answers
+    if n_nodes < 300:
+        final_n_edges = num_transactions(final_graph)
+        lp = Linear_Programming_Simplification(balances)
+        trans_lp = lp.LP()
+        New_graph = Construct_graph(trans_lp)
+        semi_final_3 = New_graph.convert_to_dict_graph()
+        semi_final_3_n_edges = num_transactions(semi_final_3)
+        if final_n_edges > semi_final_3_n_edges:
+            final_graph = semi_final_3
+            print('LP used')
+
+    # centrality calculation
+    center_node = centrality_calculation(init_dict_graph, balances)
+
+    return final_graph, center_node
+
+gr, cen = final_answer(transactions)
+print(gr, cen)
+
+"""Graph= Construct_graph(construct_transactions(300, 2000))
 Graph.construct_transaction_dict()
 graph_1 = Graph.convert_to_dict_graph()
 print('initial graph', num_transactions(graph_1))
@@ -395,20 +470,23 @@ greedy= Greedy_Debt_Simplification(graph_2)
 graph_4 = greedy.answer()
 #print(greedy.amounts)
 print('after greedy simplification', num_transactions(graph_4))
+time_2 = timeit.timeit(greedy.answer, number = 1)
+print('greedy time', time_2)
 
-lp = Linear_Programming_Simplification(graph_2_converted, greedy.amounts)
+lp = Linear_Programming_Simplification(greedy.amounts)
 trans_lp = lp.LP()
 New_graph = Construct_graph(trans_lp)
-New_graph.construct_transaction_dict()
 graph_5 = New_graph.convert_to_dict_graph()
 print('linear programming answer', num_transactions(graph_5))
+time_1 = timeit.timeit(lp.LP, number = 1)
+print('LP time', time_1)
 
-print(graph_4)
-centrality_calculation(graph_4)
 
-"""milp = Linear_Programming_Simplification(graph_4, greedy.amounts)
+milp = Linear_Programming_Simplification(greedy.amounts)
 trans_milp = milp.MILP()
 New_graph_2 = Construct_graph(trans_milp)
-New_graph_2.construct_transaction_dict()
 graph_6 = New_graph_2.convert_to_dict_graph()
-print('MILP answer', num_transactions(graph_6))"""
+print('MILP answer', num_transactions(graph_6))
+print(graph_6)"""
+
+#print('center node:', centrality_calculation(graph_1, greedy.amounts))
