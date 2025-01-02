@@ -360,6 +360,7 @@ def create_group():
         group_name_entry.delete(0,tk.END)
         selected.set("")
         try:
+            friend_table.pack_forget()
             error_label1.place_forget()
             error_label2.place_forget()
             error_label3.place_forget()
