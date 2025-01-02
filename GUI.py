@@ -13,13 +13,18 @@ import sqlite3
 
 conn = sqlite3.connect('login database')  # creating a database
 cursor = conn.cursor()     # a curser is used to execute sqlite3 commands
-cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+"""cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                                                     username TEXT NOT NULL UNIQUE, 
-                                                    password TEXT NOT NULL)''')      # creating a table for users data
-
-#cursor.execute('INSERT INTO users(username, password) VALUES (?, ?)', ('John', 'password123'))     # inserting the data
-"""  cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', ('John', 'password123'))
+                                                    password TEXT NOT NULL,
+                                                    groups TEXT DEFAULT "")''')      # creating a table for users data
+conn.commit()
+cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', ('Mahshid', '1382'))
+user = cursor.fetchone()
+print(user)"""
+#cursor.execute('INSERT INTO users(username, password, groups) VALUES (?, ?, ?)', ('John', 'password123', ""))     # inserting the data
+"""cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', ('John', 'password123'))
 user = cursor.fetchone()   # fetch a single matching row
+print(user)
 try: 
     cursor.execute('INSERT INTO users(username, password) VALUES (?, ?)', ('John', '987'))
     conn.commit()
@@ -27,27 +32,12 @@ except sqlite3.IntegrityError:
     print('username already exists!')
 
 conn.close()"""
-
+#cursor.execute('UPDATE users SET groups = "" WHERE username = ?', ('Mahshid',))
 
 group_dict={}
 group_names="files\\group_names.txt"
 group_types="files\\group_types.txt"
-group_list=[]
-group_tlist=[]
 
-with open(group_types, mode='r') as f :
-    reader=f.readlines()
-    for row in reader: 
-        if row:
-            group_tlist=row.split(",")
-    group_tlist=group_tlist[:-1]
-
-with open(group_names, mode='r') as f :
-    reader=f.readlines()
-    for row in reader: 
-        if row:
-            group_list=row.split(",")
-    group_list=group_list[:-1]
 
 #loading group type images
 trip=Image.open('pics\\trip.png')
@@ -113,7 +103,7 @@ def login_page():
     password_label=ttk.Label(login_window, text='Password:')
     password_label.place(x=230,y=205)
     password=tk.StringVar()
-    password_entry = ttk.Entry(master=login_window,textvariable=password)
+    password_entry = ttk.Entry(master=login_window,textvariable=password, show = '*')
     password_entry.place(x=310, y=200)    
 
     sign_in_button = ttk.Button(login_window, text= 'sign in', command= lambda: check_sign_in(username, password))
@@ -130,10 +120,23 @@ def login_page():
     login_window.pack()
 
 def check_sign_in(username, password):
+    global current_username
+
+    if not username.get().strip():
+        error_label_invalid.config(text = 'Please enter your username')
+        return
+    if not password.get().strip():
+        error_label_invalid.config(text = 'Please enter your password')
+        return
+
     cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username.get(), password.get()))
     user = cursor.fetchone()
+    print(username.get())
     if user:
+        current_username = username.get()
         login_window.pack_forget()
+        g_table()
+        group_table_frame.place(x=50, y=100)
         page_1.pack()
     else:
         error_label_invalid.config(text = 'Invalid username or password')
@@ -162,31 +165,54 @@ def sign_up_page():
     password_label=ttk.Label(signup_window, text='Password:')
     password_label.place(x=230,y=285)
     password=tk.StringVar()
-    password_entry = ttk.Entry(master=signup_window, textvariable=password)
+    password_entry = ttk.Entry(master=signup_window, textvariable=password, show = '*')
     password_entry.place(x=310, y=280)
 
     rep_password_label=ttk.Label(signup_window, text='Repeat password:')
     rep_password_label.place(x=200,y=385)
     rep_password=tk.StringVar()
-    rep_password_entry = ttk.Entry(master=signup_window, textvariable=rep_password)
+    rep_password_entry = ttk.Entry(master=signup_window, textvariable=rep_password, show = '*')
     rep_password_entry.place(x=310, y=380)
 
     error_label_signup = ttk.Label(signup_window , text='', foreground = 'red')
     error_label_signup.place(x= 310, y= 480)
 
-    create_button = ttk.Button(signup_window, text= 'Create', command= lambda: check_acount_creation(username, password))
+    create_button = ttk.Button(signup_window, text= 'Create', command= lambda: check_acount_creation(username, password, name, rep_password))
     create_button.place(x= 340, y=450 )
 
     signup_window.pack()
 
-def check_acount_creation(username, password):
-    try: 
-        cursor.execute('INSERT INTO users(username, password) VALUES (?, ?)', (username.get(), password.get()))
+def check_acount_creation(username, password, name, rep_password):
+    if not username.get().strip() or not password.get().strip() or not name.get().strip() or not rep_password.get().strip():
+        error_label_signup.config(text = 'Please fill out all required information.')
+        return
+    if rep_password.get().strip() != password.get().strip():
+        error_label_signup.config(text = 'The repeated password is wrong')
+        return
+
+    try:
+        cursor.execute('INSERT INTO users(username, password, groups) VALUES (?, ?, ?)', (username.get(), password.get(), ""))
         conn.commit()
     except sqlite3.IntegrityError:
         error_label_signup.config(text = 'Username already exists!')
 
-
+group_list = []
+group_tlist = []
+def create_group_list():
+    cursor.execute('SELECT groups FROM users WHERE username = ?', (current_username, ))
+    result = cursor.fetchone()
+    if result:
+        group_names = result[0]
+        if not group_names:
+            pass 
+        groupp = group_names.split(',')[1:]
+        print(groupp)
+        for i in groupp:
+            g = i.split('_')
+            if g[0] not in group_list:
+                group_list.append(g[0])
+                group_tlist.append(g[1])
+            
 
 def new_group_page():
     page_1.pack_forget()
@@ -195,7 +221,7 @@ def new_group_page():
 
 #to be fixed
 def details_page(item_values):
-    global file_path
+    global file_path, group_name_label, group_type_label
     page_1.pack_forget()
 
     name=item_values[1]
@@ -214,12 +240,9 @@ def details_page(item_values):
     main_page_button=ttk.Button(master= exadd_friend_page, text='Main Page', command= lambda: return_to_mainpage(exadd_friend_page))
     main_page_button.place(x=300,y=580)
     
-
-    group_name_label=ttk.Label(exadd_friend_page, text=f"Group name:  {item_values[1]}")
-    group_name_label.place(x=280,y=30)
-
-    group_type_label=ttk.Label(exadd_friend_page , text=f"Group type:  {item_values[2]}")
-    group_type_label.place(x=280,y=70)  
+    group_name_label.config(text=f"Group name:  {item_values[1]}")  
+    group_type_label.config(text=f"Group type:  {item_values[2]}") 
+ 
     try:
         friend_tabl.pack_forget()
     except:
@@ -313,13 +336,10 @@ def create_group():
     group_nam=group_name.get().strip()
     selected_gtype=selected.get()
     if group_nam and selected_gtype and group_nam not in group_list:
+        cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{group_nam}_{selected_gtype}', current_username))
+        conn.commit()
+        create_group_list()
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
-        group_list.append(group_nam)
-        group_tlist.append(selected_gtype)
-        with open(group_names, mode='a') as f :
-            f.write(group_nam+',')
-        with open(group_types, mode='a') as f :
-            f.write(selected_gtype+',')
         with open(f"files//{group_nam}_{selected_gtype}.csv", mode='w') as f :
             pass
 
@@ -610,6 +630,7 @@ def g_table():
     group_table.heading('number', text='Number')
     group_table.heading('g_name', text='Group Name')
     group_table.heading('g_type', text='Group Type')
+    create_group_list()
     for i in range(len(group_list)):
         number=i+1
         name=group_list[i]
@@ -617,8 +638,8 @@ def g_table():
         group_table.insert(parent='', index=tk.END, values=(number,name,g_type))
     group_table.bind("<<TreeviewSelect>>", on_item_select)
     group_table.pack()
-g_table()
-group_table_frame.place(x=50, y=100)
+#g_table()
+#group_table_frame.place(x=50, y=100)
 #page_1.pack()
 
 def calculate_trans(page_to_forget,path):
@@ -702,6 +723,12 @@ main_page_button.place(x=300,y=600)
 
 exadd_friend_page=ttk.Frame(window, width= 700, height=700)
 exadd_friend_page.pack_propagate(False)
+
+group_name_label=ttk.Label(exadd_friend_page, text="")
+group_name_label.place(x=280,y=30)
+
+group_type_label=ttk.Label(exadd_friend_page , text="")
+group_type_label.place(x=280,y=70) 
 
 friend_table=ttk.Treeview(add_friend_page, columns= ('Number','Name'))
 
