@@ -1,3 +1,5 @@
+import datetime
+from datetime import datetime
 import numpy as np
 import heapq as hq
 from datetime import date, timedelta
@@ -8,6 +10,7 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 import networkx as nx
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 class Group():
@@ -22,21 +25,19 @@ class Group():
     def add_friend(self, new_friend):
         self.friends.append(new_friend)
 
-        def add_expense(self, expense):
+    def add_expense(self, expense):
         self.expenses.append(expense)
         expense.calculate_shares()
-        if self.day is None:
-            self.day = date.today()
         self.group_graph += expense.graph
         if expense.group_name not in self.groups:
             self.groups[expense.group_name] = expense.category
-        self.update_pay(expense)
 
-    def update_pay(self, expense):
-        for i, person in enumerate(expense.owers):
-            if person != expense.payer:
-                self.friends[person].money -= expense.for_one[i]
-                self.friends[expense.payer].money += expense.for_one[i]
+
+    # def update_pay(self, expense):
+    #    for i, person in enumerate(expense.owers):
+    #        if person != expense.payer:
+    #            self.friends[expense.owers.index(person)].money -= expense.for_one[i]
+    #            self.friends[expense.owers.index(expense.payer)].money += expense.for_one[i]
 
     def recurring_expense(self):
         today = date.today()
@@ -90,6 +91,7 @@ class Group():
                 all_cat[ex.category] += expense.value
         return all_cat
 
+
 class Friend():
     def __init__(self, name):
         self.name = name
@@ -103,7 +105,7 @@ class Expense():
     ALLOWED_INTERVALS = ("daily", "weekly", "monthly", "yearly")
     # payment methods = online -> show شماره کارت or لینک پرداخت از آپ, cash
 
-    def __init__(self, name, value, payer, owers, group_name, category, payment_method, split_type = 'equal', ex_date,
+    def __init__(self, name, value, payer, owers, group_name, category, payment_method, ex_date, split_type = 'equal',
                  shares = None, recurring = False, interval = None):
         self.name = name
         self.value = value
@@ -114,13 +116,17 @@ class Expense():
         self.group_name = group_name
         self.category = category
         self.payment_method = payment_method
-        self.day = ex_date
+        self.day = ex_date if ex_date else date.today()
         self.recurring = recurring
         self.interval = interval
         self.next = self.calculate_next()
         self.for_one = []
         self.graph = []
         self.shares_dict = {}
+
+    def calculate_date(self):
+        if isinstance(self.day, str): # check if input date is str
+            self.day = datetime.strptime(self.day, "%Y-%m-%d").date()
 
     def calculate_shares(self):
         if self.split_type == 'equal':
@@ -151,7 +157,7 @@ class Expense():
             self.shares_dict[ower] = self.for_one[i+1]
 
     def to_graph(self):
-        for i, ower in enumerate(owers):
+        for i, ower in enumerate(self.owers):
             self.graph.append([self.payer, ower, self.for_one[i+1]])
         return self.graph
 
@@ -160,7 +166,7 @@ def total_person_balance(graph, person):
     return graph[person]
 
 
-def exp_for_one_in_cat(person, group_list):
+def exp_for_one_in_cat(group_list, person):
     for group in group_list:
         exp_for_person = group.search_person(person)
     for exp in exp_for_person:
@@ -169,33 +175,32 @@ def exp_for_one_in_cat(person, group_list):
             all_cat[exp.category] += exp.value
         return all_cat
 
-# an example to show if visualization works
-expense_1 = Expense(
-    name ="Diner",
-    value =300,
-    payer="Maryam",
-    owers = ["Manouchehr", "Jalil"],
-    group_name="family", category= 'Food', payment_method="cash", split_type='exact', shares=[1,2,3])
+# (self, name, value, payer, owers, group_name, category, payment_method, split_type = 'equal', shares = None)
+expense_1 = Expense(name ="Diner", value =300, payer="Maryam", ex_date = "2025-01-01", owers = ["Manouchehr", "Jalil"], group_name="family",
+                        category= 'Food', payment_method="cash", split_type='exact', shares=[1,2,3])
 
 expense_2 = Expense(
-    name ="Cinema",
-    value =100,
-    payer="Manouchehr",
-    owers = ["Zahra", "Jalil"],
-    group_name="family", category= 'Hobby', payment_method="cash", split_type='percentage', shares=[0.25,0.5,0.25])
+    name ="Cinema", value =100, payer="Manouchehr", ex_date = None, owers = ["Zahra", "Jalil"], group_name="family", category= 'Hobby',
+    payment_method="cash", split_type='percentage', shares=[0.25,0.5,0.25])
 
 expense_3 = Expense(
     name ="Tax",
     value =60,
-    payer="Zahra",
+    payer="Zahra", ex_date = "2025-01-01",
     owers = ["Maryam", "Jalil"],
     group_name="family", category= 'House', payment_method="credit_cards", split_type='exact', shares=[1,1,1])
 
+expense_4 = Expense(name ="ABC", value =400, payer="Maryam", ex_date = "2024-12-28", owers = ["Manouchehr", "Jalil", "Roya"],
+                    group_name="D", category= 'Business', payment_method="cash", split_type='exact', shares=[1,2,3,4])
+
 # List of expenses
-expenses = [expense_1, expense_2, expense_3]
+expenses = [expense_1, expense_2, expense_3, expense_4]
+for ex in expenses:
+    ex.calculate_date()
+graph = {'A': {'B': 100, 'C': 200}, 'B': {'D': 150}, 'C': {}, 'D': {'A': 50}}
+
 for expense in expenses:
     expense.shares_to_dict()
-
 
 # graph visualization
 def calculate_color(graph):
@@ -216,19 +221,17 @@ def visualize_graph(graph):
             vis_graph.add_edge(payer, ower, weight = amount)
     nodes_pos = nx.spring_layout(vis_graph, k = 5, iterations=50)
     nodes_color = calculate_color(vis_graph)
-    plt.figure(figsize = (8, 6))
-    nx.draw(vis_graph, nodes_pos, with_labels= True, node_color = nodes_color, node_size = 1000, font_size = 10)
-    nx.draw_networkx_edges(vis_graph, nodes_pos, arrowsize=15)
-    edge_labels = nx.get_edge_attributes(vis_graph, 'weight')
-    nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels)
-    plt.show()
 
-print(graph)
-visualize_graph(graph)
+    fig, ax = plt.subplots(figsize = (8, 6))
+    nx.draw(vis_graph, nodes_pos, with_labels= True, node_color = nodes_color, node_size = 1000, font_size = 10)
+    nx.draw_networkx_edges(vis_graph, nodes_pos, arrowsize=15, ax = ax)
+    edge_labels = nx.get_edge_attributes(vis_graph, 'weight')
+    nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels, ax = ax)
+    return fig
 
 # Total debts visualization by Pie chart
 
-def total_debts(garph):
+def total_debts(graph):
     total_debts = {}
     for payer, ower in graph.items():
         for ower, amount in ower.items():
@@ -240,24 +243,25 @@ def visualize_pie_chart(total_debts):
     values = total_debts.values()
     # different colors for different people
     colors = plt.cm.tab20(np.linspace(0, 1, len(values)))
-    plt.figure(figsize=(8, 6))
-    plt.pie(values, labels=labels, colors=colors)
-    plt.title('Portion of everyone in Unpaid debts')
-    plt.show()
-
-visualize_pie_chart(total_debts(graph))
-
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.pie(values, labels=labels, colors=colors, autopct="%1.1f%%") # autopct is to show percentage
+    ax.set_title('Portion of everyone in Unpaid debts')
+    return fig
 
 # Chart of shares
 def generate_colors(expenses):
     all_people = set(person for expense in expenses for person in expense.shares_dict.keys())
     return {person: (random.random(), random.random(), random.random()) for person in all_people}
 
-def visualize_bar_chart(expenses):
+def visualize_bar_chart(group_list, person):
+    exp_for_person = []
+    for group in group_list:
+        exp_for_person.extend(group.search_person(person))
     fig, ax = plt.subplots(figsize = (8, 6))
-    colors = generate_colors(expenses)
-    bar_pos = range(len(expenses))
-    for i, expense in enumerate(expenses):
+    colors = generate_colors(exp_for_person)
+    bar_pos = range(len(exp_for_person))
+
+    for i, expense in enumerate(exp_for_person):
         # start to draw a bar
         first_height = 0
         for person, share in expense.shares_dict.items():
@@ -267,66 +271,68 @@ def visualize_bar_chart(expenses):
             first_height += height_for_now
         ax.text(bar_pos[i], expense.value + 5, expense.payer, ha='center', fontsize=10, color='black')
 
-    all_people = set(person for expense in expenses for person in expense.shares_dict.keys())
+    all_people = set(person for exp in exp_for_person for person in exp.shares_dict.keys())
     ax.set_title("Expenses Shares Bar Chart", fontsize=16)
     ax.set_ylabel("Amount", fontsize=12)
     ax.set_xlabel("Expenses", fontsize=12)
     ax.set_xticks(bar_pos)
-    ax.set_xticklabels([f"Expense {expense.name}" for i in bar_pos])
+    ax.set_xticklabels([f"Expense {exp.name}" for exp in exp_for_person])
     ax.legend(handles= [plt.Line2D([1], [1], linewidth= 5, color = colors[person]) for person in all_people], labels= all_people, title="Participants", loc="upper right")
     ax.grid(axis="y", linestyle="--", alpha=0.7)
 
-    plt.tight_layout()
-    plt.show()
+    return fig
 
-
-visualize_bar_chart(expenses)
 
 # pie chart for all expenses by category (value)
-
 def visualize_expenses_in_category(group):
-    category_totals = group.exp_in_cat()
+    category_totals = group.expense_in_category()
     labels = [key for key, value in category_totals.items() if value > 0]
     values = [value for value in category_totals.values() if value > 0]
     # generation of unrepeated colors for each category
     colors = plt.cm.tab20(np.linspace(0, 1, labels))
 
-    plt.figure(figsize=(8, 6))
-    plt.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
-    plt.title("expenses in each category (total value of each category)")
-    plt.show()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
+    ax.set_title("expenses in each category (total value of each category)")
+
+    return fig
 
 # pie chart for each person expenses by category (value)
-def visualize_expenses_for_person(person, group_list):
-    person_category_totals = exp_for_one_in_cat(person, group_list)
+def visualize_expenses_for_person(group_list, person):
+    person_category_totals = exp_for_one_in_cat(group_list, person)
     labels = [key for key, value in person_category_totals.items() if value > 0]
     values = [value for value in person_category_totals.values() if value > 0]
     # generation of unrepeated colors for each category
-    colors = plt.cm.tab20(np.linspace(0, 1, labels))
+    colors = plt.cm.tab20(np.linspace(0, 1, len(labels)))
 
-    plt.figure(figsize=(8, 6))
-    plt.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
-    plt.title(f"expenses of {person} in each category (total value of each category)")
-    plt.show()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.pie(values, labels= labels, colors= colors, autopct="%1.1f%%", startangle=90)
+    ax.set_title(f"expenses of {person} in each category (total value of each category)")
+    return fig
+
 
 # bar chart for last week (for a single group)
 # 1. separating expenses of each day
-def each_day_exp(group_list):
+def each_day_exp(gr_list, person):
     exp_in_day = {}
-    for gr in group_list:
+    for gr in gr_list:
         for exp in gr.expenses:
             for n in range(1, 8): # change the range if you want more days :) # not preferred :)
-                today = date.today()
-                day = today - timedelta(days=n)
-                if day not in exp_in_day:
-                    exp_in_day[day] = {}
-                if exp.category not in exp_in_day[day]:
-                    exp_in_day[day][exp.category] = 0
-                exp_in_day[day][exp.category] += exp.value
+                if exp.payer == person or person in exp.owers:
+                    today = date.today()
+                    day = today - timedelta(days=n)
+                    if exp.day == day:
+                        if day not in exp_in_day:
+                            exp_in_day[day] = {}
+                        if exp.category not in exp_in_day[day]:
+                            exp_in_day[day][exp.category] = 0
+                        exp_in_day[day][exp.category] += exp.value
     return exp_in_day
+
+
 # 2. visualize bar chart
-def visualize_last_week(group_list):
-    exp_in_day = each_day_exp(group_list) # keys : dates , values : cats in each dates
+def visualize_last_week(gr_list, person):
+    exp_in_day = each_day_exp(gr_list, person) # keys : dates , values : cats in each dates
     days = sorted(exp_in_day.keys()) # keys of this dict are dates
     categories = set(cat for day in exp_in_day.values() for cat in day.keys()) # select all categories present
     cat_colors = {cat : plt.cm.tab20(i / len(categories)) for i, cat in enumerate(categories)}
@@ -335,7 +341,7 @@ def visualize_last_week(group_list):
     start_heights = [0] * len(days)
 
     for category in categories:
-        heights = [exp_in_day.get(category, 0 ) for day in days]
+        heights = [exp_in_day[day].get(category, 0) for day in days]
         ax.bar([day.strftime("%Y-%m-%d") for day in days], heights, bottom =  start_heights, label = category, color = cat_colors[category])
         start_heights = [start + height for start, height in zip(start_heights, heights)]
 
@@ -344,6 +350,36 @@ def visualize_last_week(group_list):
     ax.set_ylabel("Total expenses", fontsize = 14)
     ax.legend(title = "Categories", loc =  "upper right")
     ax.grid(axis = "y", linestyle = "--", alpha = 0.7)
-    
-    plt.tight_layout()
-    plt.show()
+
+    return fig
+
+gr = Group("test", "Party")
+gr.add_expense(expense_1)
+gr.add_expense(expense_2)
+gr.add_expense(expense_3)
+gr.add_expense(expense_4)
+
+# save report as pdf
+def save_report(graph_before, graph_after, group_list, person):
+    pdf_name = "all_visual_reports.pdf"
+    with PdfPages(pdf_name) as pdf:
+        # first page of pdf report
+        plt.title("Graph Before Simplification")
+        pdf.savefig(visualize_graph(graph_before))
+        plt.title("Graph After Simplification")
+        pdf.savefig(visualize_graph(graph_after))
+
+        # second page of pdf report
+        pdf.savefig(visualize_last_week(group_list, person))
+        pdf.savefig(visualize_bar_chart(group_list, person))
+
+        # third page of pdf report
+        pdf.savefig(visualize_pie_chart(total_debts(graph_after)))
+        pdf.savefig(visualize_expenses_for_person(group_list, person))
+
+def save_group_report(group):
+    with PdfPages("all_visual_reports.pdf") as pdf:
+        pdf.savefig(visualize_expenses_in_category(group))
+
+visualize_last_week(gr_list=[gr], person="Maryam")
+save_report(graph_1, graph_2, [gr], "Zahra")
