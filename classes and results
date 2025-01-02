@@ -202,16 +202,26 @@ graph = {'A': {'B': 100, 'C': 200}, 'B': {'D': 150}, 'C': {}, 'D': {'A': 50}}
 for expense in expenses:
     expense.shares_to_dict()
 
+
 # graph visualization
 def calculate_color(graph):
-    node_colors = []
+    node_colors = {}
+    balance = {}
     for node in graph.nodes:
         outgoing = sum(graph[u][v]['weight'] for u, v in graph.out_edges(node))
         incoming = sum(graph[u][v]['weight'] for u, v in graph.in_edges(node))
-        if outgoing > incoming:
-            node_colors.append('red')  # Debtor
+        balance[node] = outgoing - incoming
+    for node in graph.nodes:
+        if balance[node] == min(balance.values()):
+            node_colors[node] = 'yellow' # Avizoon
+        elif balance[node] == max(balance.values()):
+            node_colors[node] = 'purple' # Mother of Expenses
+        elif balance[node] < 0:
+            node_colors[node] = 'red' # Debtor
+        elif balance[node] > 0:
+            node_colors[node] = 'green'  # Creditor
         else:
-            node_colors.append('green')  # Creditor
+            node_colors[node] = 'blue' # balance = 0
     return node_colors
 
 def visualize_graph(graph):
@@ -221,12 +231,19 @@ def visualize_graph(graph):
             vis_graph.add_edge(payer, ower, weight = amount)
     nodes_pos = nx.spring_layout(vis_graph, k = 5, iterations=50)
     nodes_color = calculate_color(vis_graph)
+    node_color = [nodes_color[node] for node in vis_graph.nodes]
 
     fig, ax = plt.subplots(figsize = (8, 6))
-    nx.draw(vis_graph, nodes_pos, with_labels= True, node_color = nodes_color, node_size = 1000, font_size = 10)
+    nx.draw(vis_graph, nodes_pos, with_labels= True, node_color = node_color, node_size = 1000, font_size = 10)
     nx.draw_networkx_edges(vis_graph, nodes_pos, arrowsize=15, ax = ax)
     edge_labels = nx.get_edge_attributes(vis_graph, 'weight')
     nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels, ax = ax)
+
+    legend_elements = [plt.Line2D([1], [1], color='green', linewidth=4, label='Creditor'), plt.Line2D([1], [1], color='red', linewidth=4, label='Debtor'),
+                       plt.Line2D([1], [1], color='yellow', linewidth=4, label='Avizoon'), plt.Line2D([1], [1], color='purple', linewidth=4, label='Mother of Expenses'),
+                       plt.Line2D([1], [1], color='blue', linewidth=4, label='No Need to Pay')]
+    ax.legend(handles=legend_elements, loc='upper right', title="Legend")
+
     return fig
 
 # Total debts visualization by Pie chart
