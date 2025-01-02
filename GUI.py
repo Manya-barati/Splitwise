@@ -9,7 +9,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph
 import sqlite3
-
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 conn = sqlite3.connect('login database')  # creating a database
 cursor = conn.cursor()     # a curser is used to execute sqlite3 commands
@@ -68,7 +68,7 @@ other=other.resize((50,50))
 
 
 window=ttk.Window( themename="minty",iconphoto="pics\\icon1.png")
-window.geometry('700x650+500+200')
+window.geometry('950x700+500+200')
 window.title("Splitwise")
 
 
@@ -699,7 +699,7 @@ def calculate_trans(page_to_forget,path):
     df= pd.read_csv(path)
     df = df.iloc[:, :-1]
     df = df.set_index(df.columns[0])
-
+    friends_list=list(df.columns)
     transaction_list = []
     
     for idx, row in df.iterrows():
@@ -728,17 +728,17 @@ def calculate_trans(page_to_forget,path):
     list_tr=convert_dict_to_list(graph_4)
     create_transaction_ui(result_page,list_tr)
 
-    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: return_to_mainpage(result_page))
-    show_graph_button.place(x=200,y=450)
+    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: show_graph(graph_1, graph_4 ))
+    show_graph_button.place(x=50,y=500,width=150, height=50)
 
-    balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: return_to_mainpage(result_page))
-    balances_button.place(x=400,y=450)
+    balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: balances(graph_4,friends_list))
+    balances_button.place(x=220,y=500 ,width=100, height=50)
 
-    exp_chart_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
-    exp_chart_button.place(x=200,y=550)
+    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: return_to_mainpage(result_page))
+    exp_chart_button.place(x=340,y=500,width=150, height=50)
 
-    unpaid_chart_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
-    unpaid_chart_button.place(x=400,y=550)
+    unpaid_chart_button=ttk.Button(master= result_page, text='Unpaid Chart', command= lambda: return_to_mainpage(result_page))
+    unpaid_chart_button.place(x=510,y=500,width=150, height=50)
 
 
     page_to_forget.pack_forget()
@@ -775,6 +775,66 @@ def create_transaction_ui(root, transactions):
         
         y_offset += 50
         row+=1
+
+def show_graph(prev_graph,new_graph):
+    exgraph= visualize_graph(prev_graph)
+    ngraph= visualize_graph(new_graph)
+    graph_page= ttk.Frame(window, width= 1000, height=900)
+    graph_page.pack_propagate(False)
+
+    prev_label= ttk.Label(graph_page,text='Previous Graph', font=("Times New Roman", 18 , "bold"))
+    prev_label.place(x=135, y=50)
+    canvas1 = FigureCanvasTkAgg(exgraph, master=graph_page)
+    canvas1.draw()
+    canvas1.get_tk_widget().place(x=50, y=100, width=400, height=400)
+
+    curr_label= ttk.Label(graph_page,text='Current Graph', font=("Times New Roman", 18 , "bold"))
+    curr_label.place(x=585, y=50)
+    canvas2 = FigureCanvasTkAgg(ngraph, master=graph_page)
+    canvas2.draw()
+    canvas2.get_tk_widget().place(x=450, y=100, width=400, height=400)
+
+    back_button= ttk.Button(graph_page, text= 'Back', command= lambda: return_to_back(graph_page, result_page) )
+    back_button.place(x=400,y=600 ,width=100, height=35)
+
+    result_page.pack_forget()
+    graph_page.pack()
+
+def balances(graph,friend_list):
+    balance_dict={friend:0 for friend in friend_list}
+    for ch in graph:
+        for key in graph[ch]:
+            balance_dict[ch]-=graph[ch][key]
+            balance_dict[key]+= graph[ch][key]
+    balance_page= ttk.Frame(window, width= 700, height= 700)
+    balance_page.pack_propagate(False)
+    bal_table= ttk.Treeview(balance_page, columns= ('number', 'name', 'balance'), show='headings')
+    bal_table.heading( 'number', text= 'Number')
+    bal_table.heading('name', text='Name')
+    bal_table.heading('balance', text='Balance')
+    bal_table.column('number', width=150)
+    bal_table.column('name', width=150)
+    bal_table.column('balance', width=150)
+    i=1
+    for key,value in balance_dict.items():
+        number=i
+        name=key
+        balance=value
+        i+=1
+        bal_table.insert(parent='', index=tk.END, values=(number,name,balance))
+    bal_table.pack()
+
+    back_button= ttk.Button(balance_page, text= 'Back', command= lambda: return_to_back(balance_page, result_page) )
+    back_button.place(x=300,y=600 ,width=100, height=50)
+    result_page.pack_forget()
+    balance_page.pack()
+
+            
+
+def return_to_back(current_page, back_page):
+    current_page.pack_forget()
+    back_page.pack()
+
 
 
 add_group_page=ttk.Frame(window, width= 700, height=500)
@@ -945,13 +1005,13 @@ calculate_button.place(x=300,y=500)
 
 search_var = tk.StringVar()
 search_bar = ttk.Entry(expense_list_page, textvariable=search_var, width=30)
-search_bar.place(x=300, y=10)
+search_bar.place(x=280, y=10)
 
 search_button = ttk.Button(expense_list_page, text="Search", command=lambda : search_items(f"files//{group_nam}_{selected_gtype}.csv"))
-search_button.place(x=300, y=10)
+search_button.place(x=400, y=10)
 
 reset_button = ttk.Button(expense_list_page, text="Reset", command= lambda : reset_search(f"files//{group_nam}_{selected_gtype}.csv"))
-reset_button.place(x=350, y=10)
+reset_button.place(x=480, y=10)
 
 #existing group expenses
 exexpense_list_page=ttk.Frame(master=window, width= 700, height=700)

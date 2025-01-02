@@ -221,7 +221,7 @@ def visualize_graph(graph):
     nx.draw_networkx_edges(vis_graph, nodes_pos, arrowsize=15)
     edge_labels = nx.get_edge_attributes(vis_graph, 'weight')
     nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels)
-    plt.show()
+    return plt.gcf()
 
 '''print(graph)
 visualize_graph(graph)'''
