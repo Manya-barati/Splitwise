@@ -7,7 +7,7 @@ import pandas as pd
 from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification
 import networkx as nx
 import matplotlib.pyplot as plt
-from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph
+from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph, generate_colors
 import sqlite3
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -734,7 +734,7 @@ def calculate_trans(page_to_forget,path):
     balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: balances(graph_4,friends_list))
     balances_button.place(x=220,y=500 ,width=100, height=50)
 
-    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: return_to_mainpage(result_page))
+    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: expense_chart(df))
     exp_chart_button.place(x=340,y=500,width=150, height=50)
 
     unpaid_chart_button=ttk.Button(master= result_page, text='Unpaid Chart', command= lambda: return_to_mainpage(result_page))
@@ -829,6 +829,8 @@ def balances(graph,friend_list):
     result_page.pack_forget()
     balance_page.pack()
 
+def expense_chart(data_frame):
+    pass
             
 
 def return_to_back(current_page, back_page):
@@ -913,6 +915,7 @@ expense_page2=ttk.Frame(master=window ,width= 700, height=700)
 expense_page2.pack_propagate(False)
 
 def expense_stuffs(expense_page):
+    
     expense_name=tk.StringVar()
     expense_name_entry=ttk.Entry(expense_page, textvariable= expense_name)
     expense_name_entry.place(x=320,y=30)
@@ -982,11 +985,28 @@ def expense_stuffs(expense_page):
     expense_share_label=ttk.Label(expense_page, text="Share list")
     expense_share_label.place(x=215,y=520)
 
+    recurrency_type=tk.StringVar()
+    check_box= ttk.Combobox(master= expense_page, state=tk.DISABLED ,values=("Daily", "Weekly", "Monthly", "Yearly"), textvariable=recurrency_type)
+    check_box.place(x=345,y=585)
+
+    recurrent_bin=tk.StringVar(value='no')
+    recurrent_y= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='yes', text='Recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
+    recurrent_n= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='no', text='Non-recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
+    recurrent_y.place(x=100,y=590)
+    recurrent_n.place(x=200,y=590)
+
     main_page_button=ttk.Button(master= expense_page, text='Main Page', command= lambda: return_to_mainpage(expense_page))
-    main_page_button.place(x=335,y=600)
+    main_page_button.place(x=335,y=650)
 
     added_expense_button=ttk.Button(master= expense_page, text='Add', command= lambda : return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share))
-    added_expense_button.place(x=270,y=600)
+    added_expense_button.place(x=270,y=650)
+
+def is_recurrent(recurr_state, ch_box, rec_type):
+    if recurr_state.get()=='yes':
+        ch_box.config( state=tk.NORMAL)
+    else:
+        rec_type.set(value="")
+        ch_box.config(state=tk.DISABLED)
 
 expense_list_page=ttk.Frame(master=window, width= 700, height=700)
 expense_list_page.pack_propagate(False)
