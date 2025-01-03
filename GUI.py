@@ -454,11 +454,16 @@ def f_table():
         friend_table.insert(parent='', index=tk.END, values=(number,name))
     friend_table.pack()
 
-def return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share):
+
+def return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share, recurrency_type,expense_date):
+
     if expense_page== expense_page1:
         path=f"files//{group_nam}_{selected_gtype}.csv"
+        error_label=error_label8
     else:
         path= file_path
+        error_label=error_label9
+    error_label.place(x=120,y=7)
     expense_list=[]
     amount_list=[]
     extype_list=[]
@@ -482,25 +487,42 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
     try:
         expense_amoun=float(expense_amoun)
     except:
-        error_label8=ttk.Label(master= expense_page, text='Please enter a valid expense amount.', foreground="red")
-        error_label8.place(x=250,y=100)
+        expense_amoun=False
     expense_paye= expense_payer.get().strip()
     expense_ower= expense_owers.get().split(',')
     expense_ower=[x.strip() for x in expense_ower]
+    print(expense_ower)
     extyp= selected_extype.get()
     split_typ= split_type.get() 
     share= expense_share.get().split(',')
+    recur_type=recurrency_type.get()
+    expense_dat= expense_date.get()
+    people=[expense_paye]+expense_ower
     if split_typ!='Equal':
         try:
             share=[float(x.strip()) for x in share]
+            if split_typ=='Percentage':
+                if sum(share)!=100:
+                    share=False
         except:
-            error_label9=ttk.Label(master= expense_page, text='Please enter a valid expense share.', foreground="red")
-            error_label9.place(x=250,y=100) 
+            share=False
+    else:
+        share=[1/len(people) for i in people]
 
-    people=[expense_paye]+expense_ower
-    if not expense_nam or not expense_amoun or not expense_paye or not expense_ower or not extyp:
-        error_label5=ttk.Label(master= add_group_page, text='Please fill the entries or select an expense type .', foreground="red")
-        error_label5.place(x=250,y=100)
+    if not expense_nam or not expense_paye or expense_ower==[''] :
+        error_label.config(text='Please fill the entries .')
+    elif not expense_amoun:
+        error_label.config(text= "Please enter a valid expense amount.")
+    elif not extyp:
+        error_label.config(text='Please select an expense type .')
+    elif expense_nam in expense_list:
+        error_label.config(text='The expense name already exists, please enter another name.')
+    elif expense_paye not in friends_list :
+        error_label.config(text='There is not such person in the list of members, please enter another payer.')
+    elif not all(ower in friends_list for ower in expense_ower):
+        error_label.config(text='There is not such person or people in the list of members, please revise the list of owers.')
+    elif not share or len(share)!=len(people):
+        error_label.config(text='Please enter a valid list of expense shares.')
     elif expense_nam not in expense_list and expense_paye in friends_list and all(ower in friends_list for ower in expense_ower) :
         if expense_page== expense_page1:
             try:
@@ -508,7 +530,10 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
             except:
                 pass
         else:
-            expense_tabl.pack_forget()
+            try:
+                expense_tabl.pack_forget()
+            except:
+                pass
         expense_list.append(expense_nam)
         amount_list.append(expense_amoun)
         extype_list.append(extyp)
@@ -531,7 +556,7 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
                 whole_share.append(0)
         whole_share=[str(x) for x in whole_share]
         with open(path, mode='a') as f :
-            f.write("\n"+f'{expense_nam}_{expense_amoun}_{extyp}_{expense_paye}'+",")
+            f.write("\n"+f'{expense_nam}_{expense_amoun}_{extyp}_{expense_paye}_{recur_type}_{expense_dat}'+",")
             f.write(",".join(whole_share)+",")
         if expense_page== expense_page1:
             ex_table(path)
@@ -704,7 +729,7 @@ def calculate_trans(page_to_forget,path):
     
     for idx, row in df.iterrows():
         split_idx = idx.split('_')
-        payer = split_idx[-1]
+        payer = split_idx[3]
         expense_amount = float(split_idx[1])
         
         for col, value in row.items():
@@ -819,7 +844,7 @@ def balances(graph,friend_list):
     for key,value in balance_dict.items():
         number=i
         name=key
-        balance=value
+        balance='{:0.2f}'.format(value)
         i+=1
         bal_table.insert(parent='', index=tk.END, values=(number,name,balance))
     bal_table.pack()
@@ -914,8 +939,31 @@ expense_page1.pack_propagate(False)
 expense_page2=ttk.Frame(master=window ,width= 700, height=700)
 expense_page2.pack_propagate(False)
 
+error_label8=ttk.Label(master= expense_page1, text='', foreground="red")
+error_label9=ttk.Label(master= expense_page2, text='', foreground="red")
+
+def show_guide():
+    guide_window = tk.Toplevel(window)
+    guide_window.title("Guide")
+    guide_window.geometry("900x400")
+    
+    ttk.Label(guide_window, text="Guide to Input Patterns", font=("Times New Roman", 14, "bold")).pack(pady=10)
+    ttk.Label(guide_window, text="1. Name: Must be unique.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="2. Amount: Must be a number.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="3. Payer: Must be a member of the group.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="4. Owers : Must be a list of commma seperated names which each ower must be a member of the group .", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="5. Shares : Must contain a list of comma seperated values which the first value corresponds to the payer and\n \
+               the rest of the values represent the share of the owers with the order enetered in owers list", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="6. Date: Must follow this pattern mm/dd/yyyy and must be based on Christian calendar,\n the default value is the current date .", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+  
+    ttk.Button(guide_window, text="Close", command=guide_window.destroy).pack(pady=20)
+
 def expense_stuffs(expense_page):
     
+    question_mark = ttk.Label(expense_page, text="❓ Guide", foreground="blue", cursor="hand2")
+    question_mark.place(x=5, y=10)
+    question_mark.bind("<Button-1>", lambda e: show_guide())
+
     expense_name=tk.StringVar()
     expense_name_entry=ttk.Entry(expense_page, textvariable= expense_name)
     expense_name_entry.place(x=320,y=30)
@@ -987,18 +1035,25 @@ def expense_stuffs(expense_page):
 
     recurrency_type=tk.StringVar()
     check_box= ttk.Combobox(master= expense_page, state=tk.DISABLED ,values=("Daily", "Weekly", "Monthly", "Yearly"), textvariable=recurrency_type)
-    check_box.place(x=345,y=585)
+    check_box.place(x=265,y=585, width=80)
 
     recurrent_bin=tk.StringVar(value='no')
     recurrent_y= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='yes', text='Recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
     recurrent_n= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='no', text='Non-recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
-    recurrent_y.place(x=100,y=590)
-    recurrent_n.place(x=200,y=590)
+    recurrent_y.place(x=20,y=590)
+    recurrent_n.place(x=120,y=590)
+
+    #default value fix
+    expense_date=tk.StringVar(value='MM/DD/YYYY')
+    expense_date_entry=ttk.Entry(expense_page, textvariable= expense_date)
+    expense_date_entry.place(x=480,y=585)
+    expense_date_label=ttk.Label(expense_page, text="Expense date")
+    expense_date_label.place(x=380,y=585)
 
     main_page_button=ttk.Button(master= expense_page, text='Main Page', command= lambda: return_to_mainpage(expense_page))
     main_page_button.place(x=335,y=650)
 
-    added_expense_button=ttk.Button(master= expense_page, text='Add', command= lambda : return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share))
+    added_expense_button=ttk.Button(master= expense_page, text='Add', command= lambda : return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share,recurrency_type,expense_date))
     added_expense_button.place(x=270,y=650)
 
 def is_recurrent(recurr_state, ch_box, rec_type):
