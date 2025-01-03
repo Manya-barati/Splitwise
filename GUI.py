@@ -266,7 +266,8 @@ def on_item_select(event):
 
 def add_name_(path,friend_entry, friend_name ):
     global error_label6, error_label7
-    friend_nam=friend_name.get().strip()
+    friend_nam=friend_name.get().split(',')
+    friend_nam=[friend.strip() for friend in friend_nam]
     with open(path,mode= 'r') as f:
         friends_list= f.readline().split(',')[1:-1]
     #print(friends_list)
@@ -275,31 +276,36 @@ def add_name_(path,friend_entry, friend_name ):
         error_label6.place_forget()
     except:
         pass
+    for i in friend_nam:
+        if i=='':
+            friend_nam=False
+            break
+
     if not friend_nam:
-        error_label7=ttk.Label(master= exadd_friend_name, text='Please enter a valid name.', foreground="red")
+        error_label7=ttk.Label(master= exadd_friend_name, text='Please enter a valid name or a valid list of names.', foreground="red")
         error_label7.place(x=100,y=20)       
-    elif friend_nam not in friends_list:
+    elif not any(friend in friends_list for friend in friend_nam ) :
         friend_tabl.pack_forget()
         exadd_friend_name.pack_forget()
         friends_list.append(friend_nam)
         friend_entry.delete(0,tk.END)
-        with open(path, mode='r') as f :
-            lines= f.readlines()
-            with open(path, mode='w') as g:
-                if not lines:
-                    g.write(','+friend_nam)
-                first_line=lines[0].strip()+friend_nam+','
-                g.write(first_line)
-                for line in lines[1:]:
-                    g.write('\n'+line.strip()+'0'+',')
+        for fr in friend_nam:
+            with open(path, mode='r') as f :
+                lines= f.readlines()
+                with open(path, mode='w') as g:
+                    if not lines:
+                        g.write(','+fr)
+                    first_line=lines[0].strip()+fr+','
+                    g.write(first_line)
+                    for line in lines[1:]:
+                        g.write('\n'+line.strip()+'0'+',')
         details_page(selected_item_details)
         try:
           error_label6.place_forget()
         except:
-            pass
-        #f_tabl(path)  
+            pass 
     else:
-        error_label6=ttk.Label(master= exadd_friend_name, text='The name already exists, please enter another name.', foreground="red")
+        error_label6=ttk.Label(master= exadd_friend_name, text='The name or one of the names already exists, please enter another name.', foreground="red")
         error_label6.place(x=100,y=20) 
 
 
@@ -335,20 +341,22 @@ def create_group():
     global group_nam,selected_gtype, error_label1, error_label2, error_label3
     group_nam=group_name.get().strip()
     selected_gtype=selected.get()
+    path=f"files//{group_nam}_{selected_gtype}.csv"
     if group_nam and selected_gtype and group_nam not in group_list:
         cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{group_nam}_{selected_gtype}', current_username))
         conn.commit()
         create_group_list()
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
         with open(f"files//{group_nam}_{selected_gtype}.csv", mode='w') as f :
-            pass
-
+            f.write(' ,'+current_username+',')
+        group_dict[group_nam][1].append(current_username)
         add_group_page.pack_forget()
         group_name_label=ttk.Label(add_friend_page, text=f"Group name:  {group_nam}")
         group_name_label.place(x=280,y=30)
 
         group_type_label=ttk.Label(add_friend_page, text=f"Group type:  {selected_gtype}")
         group_type_label.place(x=280,y=70)
+    
         add_friend_page.pack()
 
         add_friend_button=ttk.Button(add_friend_page,text='Add person',command=lambda : add_friend_denovo(add_friend_name))
@@ -382,7 +390,13 @@ def create_group():
 
 def add_name(friend_entry, friend_name):
     global error_label4, error_label5
-    friend_nam=friend_name.get().strip()
+    friends_list=group_dict[group_nam][1]
+    friend_nam=friend_name.get().split(',')
+    friend_nam=[friend.strip() for friend in friend_nam]
+    for i in friend_nam:
+        if i=='':
+            friend_nam=False
+            break
     try:
         error_label5.place_forget()
         error_label4.place_forget()
@@ -392,16 +406,17 @@ def add_name(friend_entry, friend_name):
         with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
             f.write(' ,')
     if not friend_nam:
-        error_label5=ttk.Label(master= add_friend_name, text='Please enter a valid name.', foreground="red")
+        error_label5=ttk.Label(master= add_friend_name, text='Please enter a valid name or a valid list of names.', foreground="red")
         error_label5.place(x=100,y=20)       
-    elif friend_nam not in group_dict[group_nam][1] and friend_nam:
+    elif not any(friend in friends_list for friend in friend_nam ):
         friend_table.pack_forget()
         add_friend_name.pack_forget()
         add_friend_page.pack()
-        group_dict[group_nam][1].append(friend_nam)
         friend_entry.delete(0,tk.END)
-        with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
-            f.write(friend_nam+',')
+        for fr in friend_nam:
+            group_dict[group_nam][1].append(fr)
+            with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
+                f.write(fr+',')
         try:
           error_label4.place_forget()
         except:
@@ -418,6 +433,8 @@ def add_friend_denovo(page_to_pack):
     friend_entry.place(x=220, y=50)
     friend_name_label=ttk.Label(master=add_friend_name,text="Please enter the name")
     friend_name_label.place(x=70, y=50)
+    friend_name_labe=ttk.Label(master=add_friend_name,text="You can also enter a list of comma seperated names,\n be aware that names must be unique",foreground='gray')
+    friend_name_labe.place(x=50, y=100)
     add_name_button=ttk.Button(master=add_friend_name,text='Add',command= lambda: add_name(friend_entry, friend_name))
     add_name_button.place(x=220, y=200)
 
@@ -432,6 +449,8 @@ def add_friend_prev(page_to_pack):
     friend_entry.place(x=220, y=50)
     friend_name_label=ttk.Label(master=exadd_friend_name,text="Please enter the name")
     friend_name_label.place(x=70, y=50)
+    friend_name_labe=ttk.Label(master=exadd_friend_name,text="You can also enter a list of comma seperated names,\n be aware that names must be unique")
+    friend_name_labe.place(x=50, y=100)
     add_name_button=ttk.Button(master=exadd_friend_name,text='Add',command= lambda: add_name_(file_path, friend_entry,friend_name))
     add_name_button.place(x=220, y=200)
 
