@@ -1,4 +1,5 @@
 import datetime
+import requests
 from datetime import datetime
 import numpy as np
 import heapq as hq
@@ -11,83 +12,135 @@ from PIL import Image, ImageTk
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import pandas as pd
 
 API_KEY = "7790bd062ddc4e368a338a0c7cd596cb"
 API_URL = "https://openexchangerates.org/api/latest.json"
+key_nob = "f053a43d8e465fde3f46b6fee95405f34b6f8e3c"
+url_nob = "https://api.nobitex.ir/market/stats"
+
 class CurrencyConversion:
-    def __init__(self, api_url, api_key):
-        self.api_url = api_url
+    def __init__(self, api_url, api_key, nob_key, nob_url):
+        self.api_url = api_url #openexchange
         self.api_key = api_key
+        self.nob_key = nob_key #nobitex
+        self.nob_url = nob_url
         self.exchange_rates = {}
-        self.historical_rates = {}
+        self.historical_rates = {} # if the expense is not for today
 
     def get_rates(self):
+        # getting exchange rates from nobitex website for today
         try:
-            output = requests.get(f"{self.api_url}?app_id={self.api_key}")
+            output = requests.post(self.nob_url, json={})
+            # only if output = 200 it has been gone without error
             if output.status_code == 200:
                 data = output.json()
-                self.exchange_rates = data.get('rates', {})
-                if "IRR" not in self.exchange_rates:
-                    print("Rial is Not Supported")
-                if "USDT" not in self.exchange_rates:
-                    print("Tehter is Not Supported")
+                self.exchange_rates = {market: float(info.get('latest', 0)) for market, info in data['stats'].items()}
+                # check for rial if toman is not available
+                if "usdt-rls" in self.exchange_rates and "usdt-irt":
+                    self.exchange_rates["usdt-irt"] = self.exchange_rates["usdt-rls"] / 10
+                else:
+                    # if usdt conversion to no rial and no toman was in the database
+                    print("Tether to Rial rate is Not Supported")
             else:
+                # if the api request cause error
                 print(f"Error: {output.status_code},{output.text}")
         except Exception as e:
             print(f"Error: {e}")
 
-    def get_historical_rates(self, date):
-        if date in self.historical_rates.items():
-            return self.historical_rates[date]
-
-        historical_url = f"https://openexchangerates.org/api/historical/{date}.json"
+    # getting exchange rates from nobitex website for not today
+    def get_historical_rates(self, symbol, resolution, from_date, to_date):
         try:
-            output = requests.get(f"{historical_url}?app_id={self.api_key}")
+            # from_timestamp and to_timestamp are defined to be used in parameters of nobitex input (seconds passed from 1970-01-01
+            from_timestamp = int(datetime.strptime(from_date, "%Y-%m-%d").timestamp())
+            to_timestamp = int(datetime.strptime(to_date, "%Y-%m-%d").timestamp())
+            # parameters needed for nobitex request
+            params = {
+                "symbol": symbol, # "IRT" for ex
+                "resolution": resolution, #D stands for daily for ex
+                "from": from_timestamp,
+                "to": to_timestamp,
+            }
+            output = requests.get("https://api.nobitex.ir/market/udf/history", params=params)
             if output.status_code == 200:
                 data = output.json()
-                rates = data.get('rates', {})
-                self.historical_rates[date] = rates
-                return rates
+                if data.get("s") == "ok":
+                    # without error
+                    return data
+                else:
+                    print(f"Error in historical data response: {data}")
+                    return {}
             else:
-                print(f"Error fetching historical rates for {date}: {response.status_code}, {response.text}")
+                print(f"Error fetching historical rates: {output.status_code}, {output.text}")
                 return {}
         except Exception as e:
-            print(f"Error fetching historical rates for {date}: {e}")
+            print(f"Error fetching historical rates: {e}")
             return {}
 
-    def convert_currency(self, value, from_curr, to_curr, date=None):
+    def convert_currency(self, value, from_curr, to_curr, exp_date):
+        if exp_date and exp_date != str(date.today()):
+            yesterday = (datetime.strptime(exp_date, '%Y-%m-%d').date()-timedelta(days=1)).strftime('%Y-%m-%d') # calculating yesterday to use as to date
+            historical_data = self.get_historical_rates("USDTIRT", "D", yesterday, exp_date)
+            if historical_data:
+                # read the exchange rate for usdt to irt
+                self.exchange_rates["usdt-irt"] = historical_data["c"][-1]
+        else:
+            # for today just get rates
+            self.get_rates()
         if from_curr == to_curr:
             return value
-        rates = self.exchange_rates
-        if date: # date should be str
-            rates = self.get_historical_rates(date)
-        if from_curr not in rates or to_curr not in rates:
-            raise ValueError("Currency Not Supported")
-        return value / rates[from_curr] * rates[to_curr]
-
-curr_convertor = CurrencyConversion(api_url = API_URL, api_key= API_KEY)
+        from_curr = from_curr.lower()
+        to_curr = to_curr.lower()
+        market = f"{from_curr}-{to_curr}"
+        anti_market = f"{to_curr}-{from_curr}"
+        # if usdt to irt is not available just use 1/ irt to usdt
+        if market not in self.exchange_rates:
+            if anti_market in self.exchange_rates:
+                self.exchange_rates[market] = 1 / self.exchange_rates[anti_market]
+                rate = self.exchange_rates[market]
+            else:
+                raise ValueError(f"Market pair {market} is not supported.")
+        else:
+            # the rates needed was available
+            rate = self.exchange_rates[market]
+        return value * rate
+# get rates to be ready!
+curr_convertor = CurrencyConversion(api_url = API_URL, api_key= API_KEY, nob_key=key_nob, nob_url=url_nob)
 curr_convertor.get_rates()
-
+# an example to check the exchanging
+'''try:
+    converted_value = curr_convertor.convert_currency(1, 'USDT', 'irt', exp_date="2023-12-02")
+    print(f"Converted value: {converted_value} IRT", " 2024 ")
+except ValueError as e:
+    print(e)
+try:
+    converted_value = curr_convertor.convert_currency(1, 'USDT', 'IRT', exp_date="2025-01-03")
+    print(f"Converted value: {converted_value} IRT", "2025")
+except ValueError as e:
+    print(e)'''
 
 class Group():
     def __init__(self, group_name, group_type):
         self.expenses = []
         self.friends = []
-        self.groups = {} #key : gr name, value : category
         self.name = group_name
         self.type = group_type
         self.group_graph = []
 
+    # add member to a group
     def add_friend(self, new_friend):
         self.friends.append(new_friend)
 
-    def add_expense(self, expense):
-        self.expenses.append(expense)
-        expense.calculate_shares()
-        self.group_graph += expense.graph
-        if expense.group_name not in self.groups:
-            self.groups[expense.group_name] = expense.category
-
+    # add expense to a group
+    def add_expense(self, exp):
+        self.expenses.append(exp)
+        self.group_graph += exp.to_graph()
+        # change date input (str) to date object
+        exp.calculate_date()
+        # convert currency if inpit and output curr is different
+        exp.convert_curr()
+        # each time adding a expense, check for the recurring expenses
+        self.recurring_expense()
 
     # def update_pay(self, expense):
     #    for i, person in enumerate(expense.owers):
@@ -95,43 +148,36 @@ class Group():
     #            self.friends[expense.owers.index(person)].money -= expense.for_one[i]
     #            self.friends[expense.owers.index(expense.payer)].money += expense.for_one[i]
 
+    #
     def recurring_expense(self):
         today = date.today()
+        # if next occurance of the expense has already past or its today
         if expense.recurring and expense.next <= today:
             new_expense = Expense(name = expense.name, value = expense.value, payer = expense.payer, owers = expense.owers,
-                                  group_name= expense.group_name, category = expense.category, payment_method = expense.payment_method,
-                                  split_type = 'equal', shares = None, recurring = True, interval = expense.interval)
+                                  group_name= expense.group_name, category = expense.category, split_type = 'equal', shares = None,
+                                  recurring = True, interval = expense.interval)
             self.add_expense(new_expense)
-            expense.next = expense.calculate_next()
+            expense.next = new_expense.calculate_next()
 
-    def all_groups(self):
-        return [group for group in self.groups]
-
-    def expenses_in_gr(self, group):
-        return [expense for expense in self.expenses if expense.group_name == group]
-
+    # all expenses in a category
     def expenses_in_cat(self, category):
         return [expense for expense in self.expenses if expense.category == category]
 
-    def total_gr(self, group):
-        e = self.expenses_in_gr(group)
-        e_amount = [ex.value for ex in e]
+    # total of expenses in a group
+    def total_gr(self):
+        e_amount = [ex.value for ex in self.expenses]
         return sum(e_amount)
 
+    # total of expenses in a category
     def total_cat(self, category):
         e = self.expenses_in_cat(category)
         e_amount = [ex.value for ex in e]
         return sum(e_amount)
 
+    # total of expense values in which person was present
     def total_person(self, person):
         e_person = [expense for exp in self.expenses if expense.payer == person or person in expense.owers]
         e_person_amount = []
-        for ex in e_person:
-            if ex.payer == person:
-                person_ind = 0
-            else:
-                person_ind = ex.owers.index(person) + 1
-            e_person_amount.append(ex.value * (ex.shares_dict[person_ind] / ex.value))
         return sum(e_person_amount)
 
     def search_person(self, person):
@@ -140,6 +186,7 @@ class Group():
     def search_date(self, search_day):
         return [expense for expense in self.expenses if expense.day == search_day]
 
+    # values spent on each category 
     def expense_in_category(self):
         all_cat = {category: 0 for category in Expense.ALLOWED_CATEGORIES}
         for ex in self.expenses:
@@ -154,15 +201,14 @@ class Friend():
         self.money = 0
 
 
-class Expense():
-    ALLOWED_CATEGORIES = ("House", "Food", "Shopping", "Transportation", "Hobby", "Medicine", "Education", "Gifts", "Business", "Pets", "Charity")
-    ALLOWED_PAYMENT_METHOD = ("cash", "credit_cards")
+class Expense:
+    ALLOWED_CATEGORIES = ("House", "Food", "Shopping", "Transportation", "Hobby", "Medicine", "Education", "Gifts",
+                          "Business", "Pets", "Charity")
     ALLOWED_SPLIT_TYPE = ('equal', 'percentage', 'exact')
-    ALLOWED_INTERVALS = ("daily", "weekly", "monthly", "yearly")
-    # payment methods = online -> show شماره کارت or لینک پرداخت از آپ, cash
+    ALLOWED_INTERVALS = ("Daily", "Weekly", "Monthly", "Yearly")
 
-    def __init__(self, name, value, payer, owers, group_name, category, payment_method, ex_date, split_type = 'equal',
-                 shares = None, recurring = False, interval = None):
+    def __init__(self, name, value, payer, owers, group_name, category, ex_date, currency, output_curr, split_type='equal',
+                 shares = None, recurring=False, interval=None):
         self.name = name
         self.value = value
         self.payer = payer
@@ -171,7 +217,8 @@ class Expense():
         self.split_type = split_type
         self.group_name = group_name
         self.category = category
-        self.payment_method = payment_method
+        self.currncy = currency if currency else "IRT"
+        self.out_curr = output_curr if output_curr else "IRT"
         self.day = ex_date if ex_date else date.today()
         self.recurring = recurring
         self.interval = interval
@@ -180,10 +227,20 @@ class Expense():
         self.graph = []
         self.shares_dict = {}
 
+    # convert currency if needed
+    def convert_curr(self):
+        if self.currncy != self.out_curr:
+            if isinstance(self.day, str):
+                self.day = datetime.strptime(self.day, '%Y-%m-%d').date()
+            date_str = self.day.strftime('%Y-%m-%d')
+            self.value = curr_convertor.convert_currency(self.value, self.currncy, self.out_curr, exp_date=date_str)
+
+    # convert date from str to date object
     def calculate_date(self):
         if isinstance(self.day, str): # check if input date is str
             self.day = datetime.strptime(self.day, "%Y-%m-%d").date()
 
+    '''# calculate shares of everyone
     def calculate_shares(self):
         if self.split_type == 'equal':
             self.shares = [1] * (len(self.owers) + 1)
@@ -192,8 +249,9 @@ class Expense():
         else:
             if self.shares:
                 total_shares = sum(self.shares)
-                self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]
+                self.for_one = [self.value * self.shares[i] / total_shares for i in range(len(self.shares))]'''
 
+    # calculate next due of recurring expenses
     def calculate_next(self):
         if self.recurring and self.interval:
             if self.interval == 'daily':
@@ -206,22 +264,25 @@ class Expense():
                 return self.day + timedelta(days=365)
             return None
 
+    # convert shares list to dict : items = people, values = amounts
     def shares_to_dict(self):
         self.calculate_shares()
         self.shares_dict[self.payer] = self.for_one[0]
         for i, ower in enumerate(self.owers):
             self.shares_dict[ower] = self.for_one[i+1]
 
+    # changing the structure of a dict to a list of lists (like transactions)
     def to_graph(self):
         for i, ower in enumerate(self.owers):
             self.graph.append([self.payer, ower, self.for_one[i+1]])
         return self.graph
 
 
+# balance of anybody
 def total_person_balance(graph, person):
     return graph[person]
 
-
+# total values of all expenses in which person was present (separated by category)
 def exp_for_one_in_cat(group_list, person):
     for group in group_list:
         exp_for_person = group.search_person(person)
@@ -231,7 +292,52 @@ def exp_for_one_in_cat(group_list, person):
             all_cat[exp.category] += exp.value
         return all_cat
 
-# (self, name, value, payer, owers, group_name, category, payment_method, split_type = 'equal', shares = None)
+# Create class (group and expense instances) from excel file (output of graphics part)
+def CreateCalss(file_path, out_curr):
+    # read the csv file as a dataframe
+    data = pd.read_csv(file_path)
+
+    # read the name and type of the group from its file path
+    file_name = file_path.split('\\')[-1] # last is the file name
+    group_name, group_type = file_name.split('_')[0], file_name.split('_')[1].split('.')[0]
+
+    # make a group
+    group = Group(group_name, group_type)
+
+    # read the group members as a list from col names (except first col)
+    people = list(data.columns[1:])
+
+    # adding people to group
+    for person in people:
+        group.add_friend(Friend(person))
+
+    # read each row
+    for _, row in data.iterrows():
+        # split first col of each row
+        class_attributes = row.iloc[0].split('_')
+        name, value, category, payer, recurrent, exp_date, in_curr = class_attributes
+
+        # set the types
+        value = float(value)
+        recurrent_options = ['Daily', 'Monthly', 'Weekly', 'Yearly']
+        recurrent_mode = True if recurrent in recurrent_options else False
+        exp_date = exp_date.strip('"')
+        exp_date = datetime.strptime(exp_date, "%Y-%m-%d").date()
+
+        # read the shares as a list
+        shares_list = list(row.iloc[1:])
+        owers = [people for i, share in enumerate(shares_list) if share > 0]
+
+        # creating instances of Expense class
+        expense = Expense(name= name, value= value, payer= payer, owers= owers, group_name= group_name, category= category,
+                          ex_date= exp_date, split_type= 'exact', shares= shares_list, recurring= recurrent_mode,
+                          interval= recurrent, currency= in_curr, output_curr= out_curr)
+
+        # adding expense to the group
+        group.add_expense(expense)
+
+        return group
+
 expense_1 = Expense(name ="Diner", value =300, payer="Maryam", ex_date = "2025-01-01", owers = ["Manouchehr", "Jalil"], group_name="family",
                         category= 'Food', payment_method="cash", split_type='exact', shares=[1,2,3])
 
