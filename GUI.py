@@ -19,6 +19,12 @@ today=todate[1]+'/'+todate[2]+'/'+todate[0]
 
 conn = sqlite3.connect('login database')  # creating a database
 cursor = conn.cursor()     # a curser is used to execute sqlite3 commands
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS friend_names (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                            group_name TEXT NOT NULL UNIQUE,
+                                                            group_people TEXT DEFAULT "")''')
+conn.commit()
+
 """cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                                                     username TEXT NOT NULL UNIQUE, 
                                                     password TEXT NOT NULL,
@@ -39,6 +45,10 @@ except sqlite3.IntegrityError:
 
 conn.close()"""
 #cursor.execute('UPDATE users SET groups = "" WHERE username = ?', ('Mahshid',))
+
+cursor.execute('SELECT * FROM users ')
+x=cursor.fetchall()
+print(x)
 
 group_dict={}
 group_names="files\\group_names.txt"
@@ -147,7 +157,6 @@ def check_sign_in(username, password):
     else:
         error_label_invalid.config(text = 'Invalid username or password')
 
-
 login_page()
 
 def sign_up_page():
@@ -192,6 +201,9 @@ def check_acount_creation(username, password, name, rep_password):
     if not username.get().strip() or not password.get().strip() or not name.get().strip() or not rep_password.get().strip():
         error_label_signup.config(text = 'Please fill out all required information.')
         return
+    if len(password.get()) < 6:
+        error_label_signup.config(text = 'Password should at least be 6 characters')
+        return 
     if rep_password.get().strip() != password.get().strip():
         error_label_signup.config(text = 'The repeated password is wrong')
         return
@@ -199,8 +211,13 @@ def check_acount_creation(username, password, name, rep_password):
     try:
         cursor.execute('INSERT INTO users(username, password, groups) VALUES (?, ?, ?)', (username.get(), password.get(), ""))
         conn.commit()
+        add_previous_groups_for_new_member(username.get())
     except sqlite3.IntegrityError:
         error_label_signup.config(text = 'Username already exists!')
+        return
+    
+    signup_window.pack_forget()
+    login_window.pack()
 
 group_list = []
 group_tlist = []
@@ -212,13 +229,28 @@ def create_group_list():
         if not group_names:
             pass 
         groupp = group_names.split(',')[1:]
-        print(groupp)
         for i in groupp:
             g = i.split('_')
             if g[0] not in group_list:
                 group_list.append(g[0])
                 group_tlist.append(g[1])
+
+def add_previous_groups_for_new_member(username):
+    cursor.execute('SELECT * FROM friend_names') 
+    for row in cursor.fetchall():
+        people = row[2].split(',')[1:] 
+        print(row)
+        if username in people:
+            cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{row[1]}', username))
+            conn.commit()
             
+
+def add_group_for_friends(FriendName, group_name, group_type):
+    cursor.execute('SELECT * FROM users')
+    for row in cursor.fetchall():
+        if row[1] == FriendName:
+            cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{group_name}_{group_type}', FriendName))
+            conn.commit()
 
 def new_group_page():
     page_1.pack_forget()
@@ -294,6 +326,14 @@ def add_name_(path,friend_entry, friend_name ):
         friend_tabl.pack_forget()
         exadd_friend_name.pack_forget()
         friends_list.append(friend_nam)
+        print(friend_nam, group_name.get().strip())
+        print(selected_item_details)
+        cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{friend_nam}', f'{selected_item_details[1]}_{selected_item_details[2]}'))
+        conn.commit()
+        add_group_for_friends(friend_nam, selected_item_details[1], selected_item_details[2])
+        cursor.execute('SELECT * FROM friend_names')
+        group = cursor.fetchall()
+        print(group)
         friend_entry.delete(0,tk.END)
         for fr in friend_nam:
             with open(path, mode='r') as f :
@@ -352,6 +392,9 @@ def create_group():
         cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{group_nam}_{selected_gtype}', current_username))
         conn.commit()
         create_group_list()
+        print(group_nam)
+        cursor.execute('INSERT INTO friend_names (group_name, group_people) VALUES (?, ?)', (f'{group_nam}_{selected_gtype}' ,""))
+        conn.commit()
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
         with open(f"files//{group_nam}_{selected_gtype}.csv", mode='w') as f :
             f.write(' ,'+current_username+',')
@@ -418,11 +461,15 @@ def add_name(friend_entry, friend_name):
         friend_table.pack_forget()
         add_friend_name.pack_forget()
         add_friend_page.pack()
+        group_dict[group_nam][1].append(friend_nam)     
         friend_entry.delete(0,tk.END)
         for fr in friend_nam:
             group_dict[group_nam][1].append(fr)
             with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
                 f.write(fr+',')
+            cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{friend_nam}',f'{group_nam}_{selected_gtype}'))
+            conn.commit()            
+            add_group_for_friends(friend_nam, group_name.get().strip(), selected_gtype) 
         try:
           error_label4.place_forget()
         except:
@@ -746,6 +793,7 @@ def g_table():
     group_table.heading('g_name', text='Group Name')
     group_table.heading('g_type', text='Group Type')
     create_group_list()
+    print(group_list)
     for i in range(len(group_list)):
         number=i+1
         name=group_list[i]
@@ -832,9 +880,11 @@ def create_transaction_ui(root, transactions):
         canvas.create_text(x2 + 50, y2, text=person2, anchor="w", fill="black")
         
         # creates extra buttons!!!
-        btn = ttk.Button(root, text="Pay")
-        btn.place(x=x2 + 250, y=y_offset - 5)
-        
+        btn = ttk.Button(root, text="Unpaid", state = 'disabled')
+        btn.place(x=x2 + 250, y=y_offset - 5) 
+        if person2 == current_username:
+            btn['state'] = 'normal'
+            btn.config(command = lambda b= btn: settle_payment(b))
         y_offset += 50
         row+=1
 
@@ -975,7 +1025,11 @@ def exon_exitem_select(event):
     if exselected_exitem_details:
         exexpense_details_button.config(state=tk.NORMAL)
 
-add_group_page=ttk.Frame(window, width= 700, height=550)
+
+def settle_payment(btn):
+    btn.config(text = 'Settled', state = 'disabled')
+
+add_group_page=ttk.Frame(window, width= 700, height=500)
 add_group_page.pack_propagate(False)
 group_name=tk.StringVar()
 group_name_entry=ttk.Entry(add_group_page, textvariable= group_name)
