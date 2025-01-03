@@ -40,12 +40,12 @@ class Group():
 
     def recurring_expense(self):
         today = date.today()
-        if expense.recurring and expense.next <= today:
-            new_expense = Expense(name = expense.name, value = expense.value, payer = expense.payer, owers = expense.owers,
-                                  group_name= expense.group_name, category = expense.category, payment_method = expense.payment_method,
-                                  split_type = 'equal', shares = None, recurring = True, interval = expense.interval)
+        if self.expense.recurring and self.expense.next <= today:
+            new_expense = Expense(name = self.expense.name, value = self.expense.value, payer = self.expense.payer, owers = self.expense.owers,
+                                  group_name= self.expense.group_name, category = self.expense.category, payment_method = self.expense.payment_method,
+                                  split_type = 'equal', shares = None, recurring = True, interval = self.expense.interval)
             self.add_expense(new_expense)
-            expense.next = expense.calculate_next()
+            self.expense.next = self.expense.calculate_next()
 
     def all_groups(self):
         return [group for group in self.groups]
@@ -67,7 +67,7 @@ class Group():
         return sum(e_amount)
 
     def total_person(self, person):
-        e_person = [expense for exp in self.expenses if expense.payer == person or person in expense.owers]
+        e_person = [self.expense for exp in self.expenses if self.expense.payer == person or person in self.expense.owers]
         e_person_amount = []
         for ex in e_person:
             if ex.payer == person:
@@ -87,7 +87,7 @@ class Group():
         all_cat = {category: 0 for category in Expense.ALLOWED_CATEGORIES}
         for ex in self.expenses:
             if ex.category in all_cat:
-                all_cat[ex.category] += expense.value
+                all_cat[ex.category] += self.expense.value
         return all_cat
 
 class Friend():
@@ -221,7 +221,7 @@ def visualize_graph(graph):
     nx.draw_networkx_edges(vis_graph, nodes_pos, arrowsize=15)
     edge_labels = nx.get_edge_attributes(vis_graph, 'weight')
     nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels)
-    plt.show()
+    return plt.gcf()
 
 '''print(graph)
 visualize_graph(graph)'''
