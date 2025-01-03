@@ -224,8 +224,8 @@ def new_group_page():
     page_1.pack_forget()
     add_group_page.pack()
 
+file_path=''
 
-#to be fixed
 def details_page(item_values):
     global file_path, group_name_label, group_type_label
     page_1.pack_forget()
@@ -642,6 +642,7 @@ def ex_table(path):
         amount= elements[1]
         payer= elements[3]
         expense_table.insert(parent='', index=tk.END, values=(number, name, ex_type, amount, payer))
+    expense_table.bind("<<TreeviewSelect>>", on_exitem_select)
     expense_table.pack()
 
 
@@ -670,6 +671,7 @@ def ex_tabl(path):
         amount= elements[1]
         payer= elements[3]
         expense_tabl.insert(parent='', index=tk.END, values=(number, name, ex_type, amount, payer))
+    expense_tabl.bind("<<TreeviewSelect>>", exon_exitem_select)
     expense_tabl.pack(fill=tk.BOTH, expand=True)        
 
 def search_items(path):
@@ -897,7 +899,81 @@ def return_to_back(current_page, back_page):
     current_page.pack_forget()
     back_page.pack()
 
+def expense_detail_func(selected_item, page_to_forget):
+    page_to_forget.pack_forget()
+    expense_detail_page=ttk.Frame(window, width= 700, height=700)
+    expense_detail_page.pack_propagate(False)
+    if page_to_forget==expense_list_page:
+        path=f"files//{group_nam}_{selected_gtype}.csv"
+    else:
+        path=file_path
+    df=pd.read_csv(path)
+    df = df.iloc[:, :-1]
+    df = df.set_index(df.columns[0])
+    print(selected_item)
+    print(list(selected_item))
+    number=int(selected_item[0])-1
+    selected_line=df.iloc[number, :]
+    det=selected_line.name.split('_')
+    ex_name=det[0]
+    ex_amount=float(det[1])
+    ex_type=det[2]
+    ex_payer=det[3]
+    ex_date=det[5]
+    expense_name_label=ttk.Label(expense_detail_page, text=f"Expense name: {ex_name}", font=(8))
+    expense_name_label.place(x=100,y=40)
 
+    expense_type_label=ttk.Label(expense_detail_page, text=f"Expense type: {ex_type}", font=(8))
+    expense_type_label.place(x=350,y=40)
+
+    expense_payer_label=ttk.Label(expense_detail_page, text=f"Expense payer: {ex_payer}", font=(8))
+    expense_payer_label.place(x=100,y=90)
+
+    expense_amount_label=ttk.Label(expense_detail_page, text=f"Expense amount: {ex_amount}", font=(8))
+    expense_amount_label.place(x=350,y=90)
+
+    expense_date_label=ttk.Label(expense_detail_page, text=f"Expense date: {ex_date}", font=(8))
+    expense_date_label.place(x=220,y=140)
+
+    ex_detail_table=ttk.Treeview(expense_detail_page,columns=('number', 'name', 'share', 'amount'), show='headings')
+    ex_detail_table.heading('number',text='Number')
+    ex_detail_table.heading('name',text='Name')
+    ex_detail_table.heading('share',text='Share')
+    ex_detail_table.heading( 'amount',text='Amount')
+    ex_detail_table.column('number', width=100)
+    ex_detail_table.column('name', width=150)
+    ex_detail_table.column('share', width=130)
+    ex_detail_table.column('amount', width=130)
+    i=1
+    for element in selected_line.items():
+        num=i
+        name=element[0]
+        share=element[1]
+        amount=float(element[1])*ex_amount
+        amount='{:.2f}'.format(amount)
+        i+=1
+        ex_detail_table.insert(parent='', index= tk.END,values=(num,name,share,amount))
+    ex_detail_table.place(x=100,y=200)
+
+    back_button= ttk.Button(expense_detail_page, text= 'Back', command= lambda: return_to_back(expense_detail_page, page_to_forget) )
+    back_button.place(x=300,y=600 ,width=100, height=50)
+    expense_detail_page.pack()
+
+
+
+def on_exitem_select(event):
+    global selected_exitem_details
+    selected_item = expense_table.focus()
+    selected_exitem_details = expense_table.item(selected_item, "values")
+    if selected_exitem_details:
+        expense_details_button.config(state=tk.NORMAL)
+
+def exon_exitem_select(event):
+    global exselected_exitem_details
+    selected_item = expense_tabl.focus()
+    exselected_exitem_details = expense_tabl.item(selected_item, "values")
+    if exselected_exitem_details:
+        exexpense_details_button.config(state=tk.NORMAL)
 
 add_group_page=ttk.Frame(window, width= 700, height=550)
 add_group_page.pack_propagate(False)
@@ -1123,11 +1199,14 @@ main_page_button.place(x=335,y=600)
 add_expense_button=ttk.Button(master= expense_list_page, text='Add Expenses', command= lambda: expense_page_func(expense_list_page,expense_page1)  )
 add_expense_button.place(x=300,y=550)
 
+expense_details_button= ttk.Button(master= expense_list_page, state=tk.DISABLED ,text='Details', command= lambda: expense_detail_func(selected_exitem_details,expense_list_page)  )
+expense_details_button.place(x=345,y=400)
+
 calculate_button=ttk.Button(master= expense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(expense_list_page, f"files//{group_nam}_{selected_gtype}.csv" ) )
 calculate_button.place(x=300,y=500)
 
 search_var = tk.StringVar()
-search_bar = ttk.Entry(expense_list_page, textvariable=search_var, width=30)
+search_bar = ttk.Entry(expense_list_page, textvariable=search_var, width=20)
 search_bar.place(x=280, y=10)
 
 search_button = ttk.Button(expense_list_page, text="Search", command=lambda : search_items(f"files//{group_nam}_{selected_gtype}.csv"))
@@ -1149,18 +1228,21 @@ main_page_button.place(x=335,y=550)
 add_expense_button=ttk.Button(master= exexpense_list_page, text='Add Expenses', command= lambda: expense_page_func(exexpense_list_page,expense_page2)  )
 add_expense_button.place(x=330,y=500)
 
+exexpense_details_button= ttk.Button(master= exexpense_list_page, state=tk.DISABLED ,text='Details', command= lambda: expense_detail_func(exselected_exitem_details,exexpense_list_page)  )
+exexpense_details_button.place(x=345,y=400)
+
 excalculate_button=ttk.Button(master= exexpense_list_page, text='Caluclate Transactions', command= lambda: calculate_trans(exexpense_list_page, file_path)  )
 excalculate_button.place(x=300,y=450)
 
 exsearch_var = tk.StringVar()
-search_bar = ttk.Entry(exexpense_list_page, textvariable=exsearch_var, width=20)
-search_bar.place(x=280, y=10)
+exsearch_bar = ttk.Entry(exexpense_list_page, textvariable=exsearch_var, width=20)
+exsearch_bar.place(x=280, y=10)
 
-search_button = ttk.Button(exexpense_list_page, text="Search", command= lambda : search_items(file_path))
-search_button.place(x=400, y=10)
+exsearch_button = ttk.Button(exexpense_list_page, text="Search", command= lambda : search_items(file_path))
+exsearch_button.place(x=400, y=10)
 
-reset_button = ttk.Button(exexpense_list_page, text="Reset", command= lambda : reset_search(file_path))
-reset_button.place(x=480, y=10)
+exreset_button = ttk.Button(exexpense_list_page, text="Reset", command= lambda : reset_search(file_path))
+exreset_button.place(x=480, y=10)
 
 result_page=ttk.Frame(window, width= 700, height=700)
 result_page.pack_propagate(False)
