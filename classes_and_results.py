@@ -134,10 +134,10 @@ class Group():
     # add expense to a group
     def add_expense(self, exp):
         self.expenses.append(exp)
-        self.group_graph += exp.to_graph()
+        # self.group_graph += exp.to_graph()
         # change date input (str) to date object
         exp.calculate_date()
-        # convert currency if inpit and output curr is different
+        # convert currency if input and output curr is different
         exp.convert_curr()
         # each time adding a expense, check for the recurring expenses
         self.recurring_expense()
@@ -267,9 +267,9 @@ class Expense:
 
     # convert shares list to dict : items = people, values = amounts
     def shares_to_dict(self):
-        self.calculate_shares()
         self.shares_dict[self.payer] = self.for_one[0]
         for i, ower in enumerate(self.owers):
+            
             self.shares_dict[ower] = self.for_one[i+1]
 
     # changing the structure of a dict to a list of lists (like transactions)
@@ -297,6 +297,8 @@ def exp_for_one_in_cat(group_list, person):
 def CreateCalss(file_path, out_curr):
     # read the csv file as a dataframe
     data = pd.read_csv(file_path)
+    data=data.iloc[:,:-1]
+    print(data)
 
     # read the name and type of the group from its file path
     file_name = file_path.split('\\')[-1] # last is the file name
@@ -365,6 +367,8 @@ graph = {'A': {'B': 100, 'C': 200}, 'B': {'D': 150}, 'C': {}, 'D': {'A': 50}}
 for expense in expenses:
     expense.shares_to_dict()'''
 
+gr=CreateCalss('files\\ccc_Family.csv', 'IRT')
+print(gr.friends)
 # cenrtrality calculation
 def graph_to_network(graph):
     Graph = nx.DiGraph()
@@ -467,6 +471,8 @@ def visualize_pie_chart(total_debts):
 # Chart of shares
 def generate_colors(expenses):
     # generate unique colors for people
+    for exp in expenses:
+        exp.shares_to_dict()
     all_people = set(person for expense in expenses for person in expense.shares_dict.keys())
     return {person: (random.random(), random.random(), random.random()) for person in all_people}
 

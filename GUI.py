@@ -3,10 +3,10 @@ from tkinter import ttk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 import pandas as pd
-#from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification, final_answer
+from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification, final_answer
 import networkx as nx
 import matplotlib.pyplot as plt
-from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph, generate_colors
+from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph, generate_colors, CreateCalss
 import sqlite3
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from datetime import date
@@ -23,7 +23,7 @@ cursor = conn.cursor()     # a curser is used to execute sqlite3 commands
 # creating a table for saving group members
 cursor.execute('''CREATE TABLE IF NOT EXISTS friend_names (id INTEGER PRIMARY KEY AUTOINCREMENT,
                                                             group_name TEXT NOT NULL UNIQUE,
-                                                            group_people TEXT DEFAULT "")''')
+                                                            group_people TEXT DEFAULT "" )''')
 conn.commit()
 
 # creating a table for users data
@@ -33,6 +33,10 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOI
                                                     groups TEXT DEFAULT "")''')    
 conn.commit()
 
+cursor.execute('''CREATE TABLE IF NOT EXISTS group_currency (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                            group_nam TEXT NOT NULL,
+                                                            group_curr TEXT DEFAULT 'IRT')''')
+conn.commit()
 
 #these prevents unwanted errors
 file_path=''
@@ -335,6 +339,9 @@ def create_group():
 
         # create a group table for each group
         cursor.execute(f'''CREATE TABLE IF NOT EXISTS {group_nam} (id INTEGER PRIMARY KEY AUTOINCREMENT, transaction_name TEXT NOT NUll, status TEXT DEFAULT "Unpaid")''')
+        conn.commit()
+
+        cursor.execute('INSERT INTO group_currency (group_nam, group_curr) VALUES (?, ?)', (f'{group_nam}' ,group_curr.get()))
         conn.commit()
 
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
@@ -757,21 +764,27 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
     elif expense_nam not in expense_list and expense_paye in friends_list and all(ower in friends_list for ower in expense_ower) :
         
         if expense_page== expense_page1:
+            group_curr=group_curr.get()
             expense=Expense(expense_nam, expense_amoun, expense_paye, expense_ower, group_nam, extyp,expense_dat, 
-                             expense_cur, group_curr, split_typ, share, recur_type, recur_type )
+                             expense_cur, group_curr.get(), split_typ, share, recur_type, recur_type )
             try:
                 expense_table.pack_forget()
             except:
                 pass
         else:
+            cursor.execute('SELECT group_curr FROM group_currency WHERE group_nam = ?', (f'{selected_item_details[1]}',))
+            group_currency = cursor.fetchone()
+            group_currency = group_currency[0]
+            group_curr=group_currency
             expense=Expense(expense_nam, expense_amoun, expense_paye, expense_ower, selected_item_details[1], extyp,expense_dat, 
-                             expense_cur, group_curr, split_typ, share, recur_type, recur_type )
+                             expense_cur, group_currency, split_typ, share, recur_type, recur_type )
             try:
                 expense_tabl.pack_forget()
             except:
                 pass
         expense_list.append(expense_nam)
         expense.convert_curr()
+        expense_cur=group_curr
         expense_amoun=expense.value
         amount_list.append(expense_amoun)
         extype_list.append(extyp)
@@ -965,7 +978,7 @@ def calculate_trans(page_to_forget,path):
     balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: balances(graph_2,friends_list))
     balances_button.place(x=220,y=500 ,width=100, height=50)
 
-    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: expense_chart(df))
+    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: expense_chart(df,path, group_curr))
     exp_chart_button.place(x=340,y=500,width=150, height=50)
 
     unpaid_chart_button=ttk.Button(master= result_page, text='Unpaid Chart', command= lambda: return_to_mainpage(result_page))
@@ -1086,8 +1099,22 @@ def balances(graph,friend_list):
     balance_page.pack()
 
 #command of "exp_chart_button", supposed to show expense chart
-def expense_chart(data_frame):
-    pass
+def expense_chart(data_frame,path, group_curr):
+    gr = CreateCalss(path,group_curr.get())
+
+    exp = [ex.shares_dict.items() for ex in gr.expenses]
+    print(exp)
+    person = current_username
+    bar=visualize_bar_chart([gr], person)
+    expense_chart_page= ttk.Frame(window, width= 700, height= 700)
+    expense_chart_page.pack_propagate(False)
+    canvas1 = FigureCanvasTkAgg(bar, master=expense_chart_page)
+    canvas1.draw()
+    canvas1.get_tk_widget().place(x=50, y=100, width=400, height=400)
+    back_button= ttk.Button(expense_chart_page, text= 'Back', command= lambda: return_to_back(expense_chart_page, result_page) )
+    back_button.place(x=300,y=600 ,width=100, height=50)
+    result_page.pack_forget()
+    expense_chart_page.pack()
 
 #command of back buttons
 def return_to_back(current_page, back_page):
