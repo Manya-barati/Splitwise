@@ -486,7 +486,7 @@ def add_friend_denovo():
 
 #command of "add_friend_button" for existing groups
 def add_friend_prev():
-    #command,forgetting page and packing page are different
+    #trying to merge add_friend_prev and add_friend_denovo has failed twice
     friend_name=tk.StringVar()
     friend_entry=ttk.Entry(master=exadd_friend_name,textvariable=friend_name)
     friend_entry.place(x=220, y=50)
