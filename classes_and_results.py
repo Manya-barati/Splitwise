@@ -51,7 +51,7 @@ class CurrencyConversion:
     # getting exchange rates from nobitex website for not today
     def get_historical_rates(self, symbol, resolution, from_date, to_date):
         try:
-            # from_timestamp and to_timestamp are defined to be used in parameters of nobitex input (seconds passed from 1970-01-01
+            # from_timestamp and to_timestamp are defined to be used in parameters of nobitex input (seconds passed from 1970-01-01)
             from_timestamp = int(datetime.strptime(from_date, "%Y-%m-%d").timestamp())
             to_timestamp = int(datetime.strptime(to_date, "%Y-%m-%d").timestamp())
             # parameters needed for nobitex request
@@ -152,12 +152,13 @@ class Group():
     def recurring_expense(self):
         today = date.today()
         # if next occurance of the expense has already past or its today
-        if expense.recurring and expense.next <= today:
-            new_expense = Expense(name = expense.name, value = expense.value, payer = expense.payer, owers = expense.owers,
-                                  group_name= expense.group_name, category = expense.category, split_type = 'equal', shares = None,
-                                  recurring = True, interval = expense.interval)
-            self.add_expense(new_expense)
-            expense.next = new_expense.calculate_next()
+        for expense in self.expenses:
+            if expense.recurring and expense.next <= today:
+                new_expense = Expense(name = expense.name, value = expense.value, payer = expense.payer, owers = expense.owers,
+                                    group_name= expense.group_name, category = expense.category, split_type = 'equal', shares = None,
+                                    recurring = True, interval = expense.interval)
+                self.add_expense(new_expense)
+                expense.next = new_expense.calculate_next()
 
     # all expenses in a category
     def expenses_in_cat(self, category):
@@ -338,7 +339,7 @@ def CreateCalss(file_path, out_curr):
 
         return group
 
-expense_1 = Expense(name ="Diner", value =300, payer="Maryam", ex_date = "2025-01-01", owers = ["Manouchehr", "Jalil"], group_name="family",
+'''expense_1 = Expense(name ="Diner", value =300, payer="Maryam", ex_date = "2025-01-01", owers = ["Manouchehr", "Jalil"], group_name="family",
                         category= 'Food', payment_method="cash", split_type='exact', shares=[1,2,3])
 
 expense_2 = Expense(
@@ -353,16 +354,16 @@ expense_3 = Expense(
     group_name="family", category= 'House', payment_method="credit_cards", split_type='exact', shares=[1,1,1])
 
 expense_4 = Expense(name ="ABC", value =400, payer="Maryam", ex_date = "2024-12-28", owers = ["Manouchehr", "Jalil", "Roya"],
-                    group_name="D", category= 'Business', payment_method="cash", split_type='exact', shares=[1,2,3,4])
+                    group_name="D", category= 'Business', payment_method="cash", split_type='exact', shares=[1,2,3,4])'''
 
-# List of expenses
+'''# List of expenses
 expenses = [expense_1, expense_2, expense_3, expense_4]
 for ex in expenses:
     ex.calculate_date()
 graph = {'A': {'B': 100, 'C': 200}, 'B': {'D': 150}, 'C': {}, 'D': {'A': 50}}
 
 for expense in expenses:
-    expense.shares_to_dict()
+    expense.shares_to_dict()'''
 
 # cenrtrality calculation
 def graph_to_network(graph):
@@ -577,12 +578,12 @@ def visualize_last_week(gr_list, person):
     ax.grid(axis = "y", linestyle = "--", alpha = 0.7)
 
     return fig
-
+'''
 gr = Group("test", "Party")
 gr.add_expense(expense_1)
 gr.add_expense(expense_2)
 gr.add_expense(expense_3)
-gr.add_expense(expense_4)
+gr.add_expense(expense_4)'''
 
 
 # save report as pdf
@@ -608,4 +609,4 @@ def save_group_report(group):
     with PdfPages("all_visual_reports.pdf") as pdf:
         pdf.savefig(visualize_expenses_in_category(group))
 
-save_report(graph_1, graph_2, [gr], "Zahra")
+#save_report(graph_1, graph_2, [gr], "Zahra")
