@@ -51,7 +51,7 @@ x=cursor.fetchall()
 print(x)
 #this prevents unwanted errors
 file_path=''
-
+group_nam = None
 #this dictionary saves new groups data
 group_dict={}
 
@@ -146,8 +146,9 @@ def check_sign_in(username, password):
     if user:
         current_username = username.get()
         login_window.pack_forget()
+        welcome_label.config(text = f'Welcome {current_username}!')
         g_table()
-        group_table_frame.place(x=50, y=100)
+        group_table_frame.place(x=50, y=200)
         page_1.pack()
     else:
         error_label_invalid.config(text = 'Invalid username or password')
@@ -318,8 +319,9 @@ def create_group():
         cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{group_nam}_{selected_gtype}', current_username))
         conn.commit()
         create_group_list()
-        print(group_nam)
         cursor.execute('INSERT INTO friend_names (group_name, group_people) VALUES (?, ?)', (f'{group_nam}_{selected_gtype}' ,""))
+        conn.commit()
+        cursor.execute(f'''CREATE TABLE IF NOT EXISTS {group_nam} (id INTEGER PRIMARY KEY AUTOINCREMENT, transaction_name TEXT NOT NUll, status TEXT DEFAULT "Unpaid")''')
         conn.commit()
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
         with open(f"files//{group_nam}_{selected_gtype}.csv", mode='w') as f :
@@ -766,11 +768,14 @@ selected_item_details = None
 page_1=ttk.Frame(window, width= 700, height=500)
 page_1.pack_propagate(False)
 
+welcome_label = ttk.Label(master = page_1, text = '', font = ('Times New Roman', 22), foreground= 'medium sea green')
+welcome_label.place(x = 230, y = 20)
+
 details_button = ttk.Button(master=page_1, text="Details", state=tk.DISABLED, command= lambda : details_page(selected_item_details))
-details_button.place(x=300, y=350)
+details_button.place(x=300, y=450)
 
 new_button=ttk.Button(master= page_1, text='New Group', command= new_group_page)
-new_button.place(x=300,y=20)
+new_button.place(x=300,y=100)
 
 group_table_frame=ttk.Frame(master=page_1,width= 100, height=100)
 
@@ -789,9 +794,7 @@ def g_table():
         group_table.insert(parent='', index=tk.END, values=(number,name,g_type))
     group_table.bind("<<TreeviewSelect>>", on_item_select)
     group_table.pack()
-#g_table()
-#group_table_frame.place(x=50, y=100)
-#page_1.pack()
+
 
 def calculate_trans(page_to_forget,path):
     df= pd.read_csv(path)
@@ -853,6 +856,22 @@ def create_transaction_ui(root, transactions):
     row=1
     for transaction in transactions:
         person1, person2, value = transaction
+        transaction_name = f'{person1}_{person2}_{value}'
+        if group_nam:
+            current_group = group_nam
+        else:
+            current_group = selected_item_details[1]
+
+        cursor.execute(f'SELECT 1 FROM {current_group} WHERE transaction_name = ?', (transaction_name, ))
+        trans_name = cursor.fetchone()
+        if trans_name:
+            pass
+        else:
+            cursor.execute(f'INSERT INTO {current_group} (transaction_name, status) VALUES (?, ?)', (transaction_name ,"Unpaid"))
+            conn.commit()
+
+    for transaction in transactions:
+        person1, person2, value = transaction
         
         # Draw arrow and label
         x1, y1 = 100, y_offset
@@ -863,13 +882,27 @@ def create_transaction_ui(root, transactions):
         canvas.create_text(x2 + 50, y2, text=person2, anchor="w", fill="black")
         
         # creates extra buttons!!!
-        btn = ttk.Button(root, text="Unpaid", state = 'disabled')
+        cursor.execute(f'SELECT status from {current_group} WHERE transaction_name = ?', (f'{person1}_{person2}_{value}', ))
+        result = cursor.fetchone()
+        status = result[0]
+        btn = ttk.Button(root, text=status, state = 'disabled')
         btn.place(x=x2 + 250, y=y_offset - 5) 
-        if person2 == current_username:
+        if person2 == current_username and status != 'Settled':
             btn['state'] = 'normal'
-            btn.config(command = lambda b= btn: settle_payment(b))
+            btn.config(command = lambda b = btn, per1 = person1, per2 = person2, v = value: settle_payment(b, per1, per2, v))
         y_offset += 50
         row+=1
+
+
+
+def settle_payment(btn, person1, person2, value):
+    btn.config(text = 'Settled', state = 'disabled')
+    
+    if group_nam:
+        cursor.execute(f'UPDATE {group_nam} SET status = ? where transaction_name = ? ', ('Settled', f'{person1}_{person2}_{value}'))
+    else:
+        cursor.execute(f'UPDATE {selected_item_details[1]} SET status = ? where transaction_name = ? ', ('Settled', f'{person1}_{person2}_{value}'))
+    conn.commit()
 
 def show_graph(prev_graph,new_graph):
     exgraph= visualize_graph(prev_graph)
@@ -1008,9 +1041,6 @@ def exon_exitem_select(event):
     if exselected_exitem_details:
         exexpense_details_button.config(state=tk.NORMAL)
 
-
-def settle_payment(btn):
-    btn.config(text = 'Settled', state = 'disabled')
 
 add_group_page=ttk.Frame(window, width= 700, height=500)
 add_group_page.pack_propagate(False)
