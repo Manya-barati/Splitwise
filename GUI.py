@@ -393,9 +393,9 @@ def add_name(friend_entry, friend_name):
             group_dict[group_nam][1].append(fr)
             with open(f"files//{group_nam}_{selected_gtype}.csv", mode='a') as f :
                 f.write(fr+',')
-            cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{friend_nam}',f'{group_nam}_{selected_gtype}'))
-            conn.commit()            
-            add_group_for_friends(friend_nam, group_name.get().strip(), selected_gtype) 
+            cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{fr}',f'{group_nam}_{selected_gtype}'))
+            conn.commit()  
+            add_group_for_friends(fr, group_nam,  selected_gtype) 
         try:
           error_label4.place_forget()
         except:
@@ -404,13 +404,14 @@ def add_name(friend_entry, friend_name):
     else:
         error_label4=ttk.Label(master= add_friend_name, text='The name already exists, please enter another name.', foreground="red")
         error_label4.place(x=100,y=20) 
+
+
 def add_name_(path,friend_entry, friend_name ):
     global error_label6, error_label7
     friend_nam=friend_name.get().split(',')
     friend_nam=[friend.strip() for friend in friend_nam]
     with open(path,mode= 'r') as f:
         friends_list= f.readline().split(',')[1:-1]
-    #print(friends_list)
     try:
         error_label7.place_forget()
         error_label6.place_forget()
@@ -428,16 +429,11 @@ def add_name_(path,friend_entry, friend_name ):
         friend_tabl.pack_forget()
         exadd_friend_name.pack_forget()
         friends_list.append(friend_nam)
-        print(friend_nam, group_name.get().strip())
-        print(selected_item_details)
-        cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{friend_nam}', f'{selected_item_details[1]}_{selected_item_details[2]}'))
-        conn.commit()
-        add_group_for_friends(friend_nam, selected_item_details[1], selected_item_details[2])
-        cursor.execute('SELECT * FROM friend_names')
-        group = cursor.fetchall()
-        print(group)
         friend_entry.delete(0,tk.END)
         for fr in friend_nam:
+            cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{fr}', f'{selected_item_details[1]}_{selected_item_details[2]}'))
+            conn.commit()
+            add_group_for_friends(fr, selected_item_details[1], selected_item_details[2])
             with open(path, mode='r') as f :
                 lines= f.readlines()
                 with open(path, mode='w') as g:
