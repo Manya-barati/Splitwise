@@ -744,6 +744,7 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
             share=False
     else:
         share=[1/len(people) for i in people]
+    dicty={k:v for (k,v) in zip(people,share)}    
 
     if not expense_nam or not expense_paye or expense_ower==[''] :
         error_label.config(text='Please fill the entries .')

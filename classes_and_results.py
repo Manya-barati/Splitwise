@@ -208,13 +208,13 @@ class Expense:
     ALLOWED_SPLIT_TYPE = ('equal', 'percentage', 'exact')
     ALLOWED_INTERVALS = ("Daily", "Weekly", "Monthly", "Yearly")
 
-    def __init__(self, name, value, payer, owers, group_name, category, ex_date, currency, output_curr, split_type='equal',
-                 shares = None, recurring=False, interval=None):
+    def __init__(self, name, value, payer, owers, group_name, category, ex_date, currency, output_curr, split_type,
+                 shares, recurring=False, interval=None):
         self.name = name
         self.value = value
         self.payer = payer
         self.owers = owers
-        self.shares = shares
+        self.shares=shares
         self.split_type = split_type
         self.group_name = group_name
         self.category = category
@@ -267,10 +267,8 @@ class Expense:
 
     # convert shares list to dict : items = people, values = amounts
     def shares_to_dict(self):
-        self.shares_dict[self.payer] = self.for_one[0]
-        for i, ower in enumerate(self.owers):
-            
-            self.shares_dict[ower] = self.for_one[i+1]
+        people=[self.payer]+self.owers
+        self.shares_dict= {person:share for (person,share) in zip (people,self.shares)}
 
     # changing the structure of a dict to a list of lists (like transactions)
     def to_graph(self):
