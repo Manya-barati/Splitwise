@@ -252,6 +252,23 @@ def new_group_page():
     page_1.pack_forget()
     add_group_page.pack()
 
+#table of existing groups at first page
+def g_table():
+    global group_table
+    group_table=ttk.Treeview(master= group_table_frame, columns= ('number','g_name','g_type'),show='headings')
+    group_table.heading('number', text='Number')
+    group_table.heading('g_name', text='Group Name')
+    group_table.heading('g_type', text='Group Type')
+    create_group_list()
+    print(group_list)
+    for i in range(len(group_list)):
+        number=i+1
+        name=group_list[i]
+        g_type=group_tlist[i]
+        group_table.insert(parent='', index=tk.END, values=(number,name,g_type))
+    group_table.bind("<<TreeviewSelect>>", on_item_select)
+    group_table.pack()
+
 # command of "details_button" which shows the details of an existing group
 def details_page(item_values):
     global file_path, group_name_label, group_type_label
@@ -363,6 +380,7 @@ def create_group():
         error_label3=ttk.Label(master= add_group_page, text='The group name already exists, please enter another name.', foreground="red")
         error_label3.place(x=220,y=10)
 
+#command of "add_name_button" for new groups
 def add_name(friend_entry, friend_name):
     global error_label4, error_label5
     friends_list=group_dict[group_nam][1]
@@ -386,8 +404,7 @@ def add_name(friend_entry, friend_name):
     elif not any(friend in friends_list for friend in friend_nam ):
         friend_table.pack_forget()
         add_friend_name.pack_forget()
-        add_friend_page.pack()
-        group_dict[group_nam][1].append(friend_nam)     
+        add_friend_page.pack()   
         friend_entry.delete(0,tk.END)
         for fr in friend_nam:
             group_dict[group_nam][1].append(fr)
@@ -405,7 +422,7 @@ def add_name(friend_entry, friend_name):
         error_label4=ttk.Label(master= add_friend_name, text='The name already exists, please enter another name.', foreground="red")
         error_label4.place(x=100,y=20) 
 
-
+#command of "add_name_button" for existing groups
 def add_name_(path,friend_entry, friend_name ):
     global error_label6, error_label7
     friend_nam=friend_name.get().split(',')
@@ -452,7 +469,19 @@ def add_name_(path,friend_entry, friend_name ):
         error_label6=ttk.Label(master= exadd_friend_name, text='The name or one of the names already exists, please enter another name.', foreground="red")
         error_label6.place(x=100,y=20) 
 
+#table of group members for new groups
+def f_table():
+    global friend_table
+    friend_table=ttk.Treeview(master= friend_table_frame, columns= ('number','name'),show='headings')
+    friend_table.heading('number', text='Number')
+    friend_table.heading('name', text='Name')
+    for i in range(len(group_dict[group_nam][1])):
+        number=i+1
+        name=group_dict[group_nam][1][i]
+        friend_table.insert(parent='', index=tk.END, values=(number,name))
+    friend_table.pack()
 
+#table of group members for existing groups
 def f_tabl(path):
     global friend_tabl
     with open(path,mode= 'r') as f:
@@ -498,23 +527,144 @@ def add_friend_prev():
     exadd_friend_page.pack_forget()
     exadd_friend_name.pack()
 
+#command of "add_expense_button",showing the elements of add expense page for both new groups and existing groups
 def expense_page_func(page_to_forget, page_to_pack):
     expense_stuffs(page_to_pack)
     page_to_forget.pack_forget()
     page_to_pack.pack()
 
-def f_table():
-    global friend_table
-    friend_table=ttk.Treeview(master= friend_table_frame, columns= ('number','name'),show='headings')
-    friend_table.heading('number', text='Number')
-    friend_table.heading('name', text='Name')
-    for i in range(len(group_dict[group_nam][1])):
-        number=i+1
-        name=group_dict[group_nam][1][i]
-        friend_table.insert(parent='', index=tk.END, values=(number,name))
-    friend_table.pack()
+#show a guide_icon for adding expenses
+def show_guide():
+    guide_window = tk.Toplevel(window)
+    guide_window.title("Guide")
+    guide_window.geometry("900x400")
+    
+    ttk.Label(guide_window, text="Guide to Input Patterns", font=("Times New Roman", 14, "bold")).pack(pady=10)
+    ttk.Label(guide_window, text="1. Name: Must be unique.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="2. Amount: Must be a number.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="3. Payer: Must be a member of the group.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="4. Owers : Must be a list of commma seperated names which each ower must be a member of the group .", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="5. Shares : Must contain a list of comma seperated values which the first value corresponds to the payer and\n \
+               the rest of the values represent the share of the owers with the order enetered in owers list", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+    ttk.Label(guide_window, text="6. Date: Must follow this pattern mm/dd/yyyy and must be based on Christian calendar,\n the default value is the current date .", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
+  
+    ttk.Button(guide_window, text="Close", command=guide_window.destroy).pack(pady=20)
+
+#showing widgets for expense_page
+def expense_stuffs(expense_page):
+    
+    question_mark = ttk.Label(expense_page, text="❓ Guide", foreground="blue", cursor="hand2")
+    question_mark.place(x=5, y=10)
+    question_mark.bind("<Button-1>", lambda e: show_guide())
+
+    expense_name=tk.StringVar()
+    expense_name_entry=ttk.Entry(expense_page, textvariable= expense_name)
+    expense_name_entry.place(x=320,y=30)
+    expense_name_label=ttk.Label(expense_page, text="Expense name")
+    expense_name_label.place(x=220,y=30)
+
+    expense_amount=tk.StringVar()
+    expense_amount_entry=ttk.Entry(expense_page, textvariable= expense_amount)
+    expense_amount_entry.place(x=320,y=65)
+    expense_amount_label=ttk.Label(expense_page, text="Expense amount")
+    expense_amount_label.place(x=205,y=65)
+
+    expense_payer=tk.StringVar()
+    expense_payer_entry=ttk.Entry(expense_page, textvariable= expense_payer)
+    expense_payer_entry.place(x=320,y=100)
+    expense_payer_label=ttk.Label(expense_page, text="Expense Payer")
+    expense_payer_label.place(x=220,y=100)
+
+    expense_owers=tk.StringVar()
+    expense_owers_entry=ttk.Entry(expense_page, textvariable= expense_owers)
+    expense_owers_entry.place(x=320,y=135)
+    expense_owers_label=ttk.Label(expense_page, text="Expense Owers")
+    expense_owers_label.place(x=215,y=135)
+
+    expense_type_label=ttk.Label(expense_page, text="Expense type")
+    expense_type_label.place(x=300,y=190)
+
+    #house, food, shopping, transportation, hobby, medicine, education, gifts, business, pets, charity
+    selected_extype=tk.StringVar()
+    radio1=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='food', image=foo_icon, text='Food' ,compound='top')
+    radio2=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='House', image=Hicon, text='House' ,compound='top')
+    radio3=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='shopping', image=sh_icon, text='Shopping' ,compound='top')
+    radio4=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='transportation', image=tr_icon, text='Transport' ,compound='top')
+    radio5=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='hobby', image=ho_icon, text='Hobby' ,compound='top')
+    radio6=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='medicine', image=me_icon, text='Medicine' ,compound='top')
+    radio7=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='education', image=ed_icon, text='Education' ,compound='top')
+    radio8=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='gift', image=gi_icon, text='Gift' ,compound='top')
+    radio9=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='business', image=bu_icon, text='Business' ,compound='top')
+    radio10=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='charity', image=ch_icon, text='Charity' ,compound='top')
+    radio11=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Other', image=Oicon, text='Other' ,compound='top')
+    radio1.place(x=50,y=220)
+    radio2.place(x=150,y=220)
+    radio3.place(x=250,y=220)
+    radio4.place(x=350,y=220)
+    radio5.place(x=450,y=220)
+    radio6.place(x=550,y=220)
+    radio7.place(x=100,y=320)
+    radio8.place(x=200,y=320)
+    radio9.place(x=300,y=320)
+    radio10.place(x=400,y=320)
+    radio11.place(x=500,y=320)
+
+    split_type_label=ttk.Label(expense_page, text="Split type")
+    split_type_label.place(x=300, y= 430)
+
+    split_type=tk.StringVar(value='Equal') #default split is equal
+    equal=ttk.Radiobutton(master=expense_page, variable=split_type, value='Equal', text='Equal', command=  lambda: off_state(expense_share_entry) )
+    percentage=ttk.Radiobutton(master=expense_page, variable=split_type, value='Percentage', text='Percentage',command= lambda: change_state(expense_share_entry) )
+    portion=ttk.Radiobutton(master=expense_page, variable=split_type, value='Portion', text='Portion',command= lambda: change_state(expense_share_entry) )
+    equal.place(x=180,y=470)
+    percentage.place(x=280,y=470)
+    portion.place(x=400,y=470)
+
+    expense_share=tk.StringVar()
+    expense_share_entry=ttk.Entry(expense_page, state= tk.DISABLED ,textvariable= expense_share)
+    expense_share_entry.place(x=290,y=520)
+    expense_share_label=ttk.Label(expense_page, text="Share list")
+    expense_share_label.place(x=215,y=520)
+
+    recurrency_type=tk.StringVar()
+    check_box= ttk.Combobox(master= expense_page, state=tk.DISABLED ,values=("Daily", "Weekly", "Monthly", "Yearly"), textvariable=recurrency_type)
+    check_box.place(x=245,y=585, width=90)
+
+    recurrent_bin=tk.StringVar(value='no')
+    recurrent_y= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='yes', text='Recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
+    recurrent_n= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='no', text='Non-recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
+    recurrent_y.place(x=0,y=590)
+    recurrent_n.place(x=100,y=590)
+
+    
+    expense_date=tk.StringVar(value=today)
+    expense_date_entry=ttk.Entry(expense_page, textvariable= expense_date)
+    expense_date_entry.place(x=460,y=590, width=100)
+    expense_date_label=ttk.Label(expense_page, text="Expense date")
+    expense_date_label.place(x=360,y=590)
+
+    expense_curr=tk.StringVar(value='IRT')
+    curr_check_box= ttk.Combobox(master= expense_page ,values=('IRT', 'USDT'), textvariable=expense_curr)
+    curr_check_box.place(x=710,y=590, width=90)
+    expense_curr_label=ttk.Label(expense_page, text="Expense currency")
+    expense_curr_label.place(x=590,y=590)
 
 
+    main_page_button=ttk.Button(master= expense_page, text='Main Page', command= lambda: return_to_mainpage(expense_page))
+    main_page_button.place(x=335,y=650)
+
+    added_expense_button=ttk.Button(master= expense_page, text='Add', command= lambda : return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share,recurrency_type,expense_date,expense_curr))
+    added_expense_button.place(x=270,y=650)
+
+#changing the state of recurrency combobox
+def is_recurrent(recurr_state, ch_box, rec_type):
+    if recurr_state.get()=='yes':
+        ch_box.config( state=tk.NORMAL)
+    else:
+        rec_type.set(value="")
+        ch_box.config(state=tk.DISABLED)
+
+#command of "added_expense_button", checking some conditions and if satisfied writing the expense data into a csv file
 def return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share, recurrency_type,expense_date,expense_curr):
 
     if expense_page== expense_page1:
@@ -637,6 +787,7 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
         expense_page.pack_forget()
         
 
+#command of "expense_list_button" for existing groups
 def expense_list_func():
     try:
         expense_tabl.pack_forget()
@@ -647,11 +798,13 @@ def expense_list_func():
     exexpense_list_page.pack()
 
 
+#the two following functions changes the state of share enrtry in expense_page
 def change_state(expense_share_entry):
     expense_share_entry.config(state=tk.NORMAL)
 def off_state(expense_share_entry):
     expense_share_entry.config(state=tk.DISABLED)
 
+#expense table for new groups
 def ex_table(path):
     global expense_table
     expense_table=ttk.Treeview(master= expense_table_frame, columns= ('number','ex_name','ex_type','ex_amount','payer'),show='headings')
@@ -680,7 +833,7 @@ def ex_table(path):
     expense_table.bind("<<TreeviewSelect>>", on_exitem_select)
     expense_table.pack()
 
-
+#expense table for existing groups
 def ex_tabl(path):
     global expense_tabl
     expense_tabl=ttk.Treeview(master= expense_tabl_frame, columns= ('number','ex_name','ex_type','ex_amount','payer'),show='headings')
@@ -709,6 +862,8 @@ def ex_tabl(path):
     expense_tabl.bind("<<TreeviewSelect>>", exon_exitem_select)
     expense_tabl.pack(fill=tk.BOTH, expand=True)        
 
+
+#searching_based on everything
 def search_items(path):
     
     if path== file_path:
@@ -745,6 +900,7 @@ def search_items(path):
 
     exp_table.tag_configure("highlight", background="lightblue")
 
+#resetting search entry
 def reset_search(path):
     if path== file_path:
         exsearch_var.set("")
@@ -759,40 +915,7 @@ def reset_search(path):
         exp_table.item(child, tags="")  # Clear all tags
     exp_table.tag_configure("highlight", background="white")  # Reset background
 
-
-
-selected_item_details = None
-
-page_1=ttk.Frame(window, width= 700, height=500)
-page_1.pack_propagate(False)
-
-details_button = ttk.Button(master=page_1, text="Details", state=tk.DISABLED, command= lambda : details_page(selected_item_details))
-details_button.place(x=300, y=350)
-
-new_button=ttk.Button(master= page_1, text='New Group', command= new_group_page)
-new_button.place(x=300,y=20)
-
-group_table_frame=ttk.Frame(master=page_1,width= 100, height=100)
-
-def g_table():
-    global group_table
-    group_table=ttk.Treeview(master= group_table_frame, columns= ('number','g_name','g_type'),show='headings')
-    group_table.heading('number', text='Number')
-    group_table.heading('g_name', text='Group Name')
-    group_table.heading('g_type', text='Group Type')
-    create_group_list()
-    print(group_list)
-    for i in range(len(group_list)):
-        number=i+1
-        name=group_list[i]
-        g_type=group_tlist[i]
-        group_table.insert(parent='', index=tk.END, values=(number,name,g_type))
-    group_table.bind("<<TreeviewSelect>>", on_item_select)
-    group_table.pack()
-#g_table()
-#group_table_frame.place(x=50, y=100)
-#page_1.pack()
-
+# command of "calculate_button", shows result page with some extra options
 def calculate_trans(page_to_forget,path):
     df= pd.read_csv(path)
     df = df.iloc[:, :-1]
@@ -837,6 +960,7 @@ def calculate_trans(page_to_forget,path):
     page_to_forget.pack_forget()
     result_page.pack()
 
+#converting transaction dictionary to transaction list
 def convert_dict_to_list(in_dict):
     tr_list=[]
     for key,value in in_dict.items():
@@ -845,6 +969,7 @@ def convert_dict_to_list(in_dict):
                 tr_list.append([key,ikey,ivalue])
     return tr_list
 
+#creating a canvas widget containing transactions
 def create_transaction_ui(root, transactions):
     canvas = ttk.Canvas(root, width=400, height=300, bg="white")
     canvas.place(x=75, y=10)
@@ -871,6 +996,7 @@ def create_transaction_ui(root, transactions):
         y_offset += 50
         row+=1
 
+# command of "show_graph_button", shows previous and current graph
 def show_graph(prev_graph,new_graph):
     exgraph= visualize_graph(prev_graph)
     ngraph= visualize_graph(new_graph)
@@ -895,6 +1021,7 @@ def show_graph(prev_graph,new_graph):
     result_page.pack_forget()
     graph_page.pack()
 
+# command of "balances_button", shows balances in a table
 def balances(graph,friend_list):
     balance_dict={friend:0 for friend in friend_list}
     for ch in graph:
@@ -924,14 +1051,17 @@ def balances(graph,friend_list):
     result_page.pack_forget()
     balance_page.pack()
 
+#command of "exp_chart_button", supposed to show expense chart
 def expense_chart(data_frame):
     pass
             
 
+#command of back buttons
 def return_to_back(current_page, back_page):
     current_page.pack_forget()
     back_page.pack()
 
+# command of "expense_details_button", shows the details of sele
 def expense_detail_func(selected_item, page_to_forget):
     page_to_forget.pack_forget()
     expense_detail_page=ttk.Frame(window, width= 700, height=700)
@@ -993,7 +1123,7 @@ def expense_detail_func(selected_item, page_to_forget):
     expense_detail_page.pack()
 
 
-
+# binding function of expense table which turn expense details button enable when a row in the table is selected for new groups
 def on_exitem_select(event):
     global selected_exitem_details
     selected_item = expense_table.focus()
@@ -1001,6 +1131,7 @@ def on_exitem_select(event):
     if selected_exitem_details:
         expense_details_button.config(state=tk.NORMAL)
 
+# binding function of expense table which turn expense details button enable when a row in the table is selected for existing groups
 def exon_exitem_select(event):
     global exselected_exitem_details
     selected_item = expense_tabl.focus()
@@ -1012,7 +1143,21 @@ def exon_exitem_select(event):
 def settle_payment(btn):
     btn.config(text = 'Settled', state = 'disabled')
 
-add_group_page=ttk.Frame(window, width= 700, height=500)
+
+selected_item_details = None
+
+page_1=ttk.Frame(window, width= 700, height=500)
+page_1.pack_propagate(False)
+
+details_button = ttk.Button(master=page_1, text="Details", state=tk.DISABLED, command= lambda : details_page(selected_item_details))
+details_button.place(x=300, y=350)
+
+new_button=ttk.Button(master= page_1, text='New Group', command= new_group_page)
+new_button.place(x=300,y=20)
+
+group_table_frame=ttk.Frame(master=page_1,width= 100, height=100)
+
+add_group_page=ttk.Frame(window, width= 700, height=700)
 add_group_page.pack_propagate(False)
 group_name=tk.StringVar()
 group_name_entry=ttk.Entry(add_group_page, textvariable= group_name)
@@ -1095,134 +1240,6 @@ expense_page2.pack_propagate(False)
 
 error_label8=ttk.Label(master= expense_page1, text='', foreground="red")
 error_label9=ttk.Label(master= expense_page2, text='', foreground="red")
-
-def show_guide():
-    guide_window = tk.Toplevel(window)
-    guide_window.title("Guide")
-    guide_window.geometry("900x400")
-    
-    ttk.Label(guide_window, text="Guide to Input Patterns", font=("Times New Roman", 14, "bold")).pack(pady=10)
-    ttk.Label(guide_window, text="1. Name: Must be unique.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
-    ttk.Label(guide_window, text="2. Amount: Must be a number.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
-    ttk.Label(guide_window, text="3. Payer: Must be a member of the group.", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
-    ttk.Label(guide_window, text="4. Owers : Must be a list of commma seperated names which each ower must be a member of the group .", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
-    ttk.Label(guide_window, text="5. Shares : Must contain a list of comma seperated values which the first value corresponds to the payer and\n \
-               the rest of the values represent the share of the owers with the order enetered in owers list", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
-    ttk.Label(guide_window, text="6. Date: Must follow this pattern mm/dd/yyyy and must be based on Christian calendar,\n the default value is the current date .", font=("Times New Roman", 12)).pack(anchor="w", padx=20)
-  
-    ttk.Button(guide_window, text="Close", command=guide_window.destroy).pack(pady=20)
-
-def expense_stuffs(expense_page):
-    
-    question_mark = ttk.Label(expense_page, text="❓ Guide", foreground="blue", cursor="hand2")
-    question_mark.place(x=5, y=10)
-    question_mark.bind("<Button-1>", lambda e: show_guide())
-
-    expense_name=tk.StringVar()
-    expense_name_entry=ttk.Entry(expense_page, textvariable= expense_name)
-    expense_name_entry.place(x=320,y=30)
-    expense_name_label=ttk.Label(expense_page, text="Expense name")
-    expense_name_label.place(x=220,y=30)
-
-    expense_amount=tk.StringVar()
-    expense_amount_entry=ttk.Entry(expense_page, textvariable= expense_amount)
-    expense_amount_entry.place(x=320,y=65)
-    expense_amount_label=ttk.Label(expense_page, text="Expense amount")
-    expense_amount_label.place(x=205,y=65)
-
-    expense_payer=tk.StringVar()
-    expense_payer_entry=ttk.Entry(expense_page, textvariable= expense_payer)
-    expense_payer_entry.place(x=320,y=100)
-    expense_payer_label=ttk.Label(expense_page, text="Expense Payer")
-    expense_payer_label.place(x=220,y=100)
-
-    expense_owers=tk.StringVar()
-    expense_owers_entry=ttk.Entry(expense_page, textvariable= expense_owers)
-    expense_owers_entry.place(x=320,y=135)
-    expense_owers_label=ttk.Label(expense_page, text="Expense Owers")
-    expense_owers_label.place(x=215,y=135)
-
-    expense_type_label=ttk.Label(expense_page, text="Expense type")
-    expense_type_label.place(x=300,y=190)
-
-    #house, food, shopping, transportation, hobby, medicine, education, gifts, business, pets, charity
-    selected_extype=tk.StringVar()
-    radio1=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='food', image=foo_icon, text='Food' ,compound='top')
-    radio2=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='House', image=Hicon, text='House' ,compound='top')
-    radio3=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='shopping', image=sh_icon, text='Shopping' ,compound='top')
-    radio4=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='transportation', image=tr_icon, text='Transport' ,compound='top')
-    radio5=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='hobby', image=ho_icon, text='Hobby' ,compound='top')
-    radio6=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='medicine', image=me_icon, text='Medicine' ,compound='top')
-    radio7=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='education', image=ed_icon, text='Education' ,compound='top')
-    radio8=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='gift', image=gi_icon, text='Gift' ,compound='top')
-    radio9=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='business', image=bu_icon, text='Business' ,compound='top')
-    radio10=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='charity', image=ch_icon, text='Charity' ,compound='top')
-    radio11=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Other', image=Oicon, text='Other' ,compound='top')
-    radio1.place(x=50,y=220)
-    radio2.place(x=150,y=220)
-    radio3.place(x=250,y=220)
-    radio4.place(x=350,y=220)
-    radio5.place(x=450,y=220)
-    radio6.place(x=550,y=220)
-    radio7.place(x=100,y=320)
-    radio8.place(x=200,y=320)
-    radio9.place(x=300,y=320)
-    radio10.place(x=400,y=320)
-    radio11.place(x=500,y=320)
-
-    split_type_label=ttk.Label(expense_page, text="Split type")
-    split_type_label.place(x=300, y= 430)
-
-    split_type=tk.StringVar(value='Equal') #default split is equal
-    equal=ttk.Radiobutton(master=expense_page, variable=split_type, value='Equal', text='Equal', command=  lambda: off_state(expense_share_entry) )
-    percentage=ttk.Radiobutton(master=expense_page, variable=split_type, value='Percentage', text='Percentage',command= lambda: change_state(expense_share_entry) )
-    portion=ttk.Radiobutton(master=expense_page, variable=split_type, value='Portion', text='Portion',command= lambda: change_state(expense_share_entry) )
-    equal.place(x=180,y=470)
-    percentage.place(x=280,y=470)
-    portion.place(x=400,y=470)
-
-    expense_share=tk.StringVar()
-    expense_share_entry=ttk.Entry(expense_page, state= tk.DISABLED ,textvariable= expense_share)
-    expense_share_entry.place(x=290,y=520)
-    expense_share_label=ttk.Label(expense_page, text="Share list")
-    expense_share_label.place(x=215,y=520)
-
-    recurrency_type=tk.StringVar()
-    check_box= ttk.Combobox(master= expense_page, state=tk.DISABLED ,values=("Daily", "Weekly", "Monthly", "Yearly"), textvariable=recurrency_type)
-    check_box.place(x=245,y=585, width=90)
-
-    recurrent_bin=tk.StringVar(value='no')
-    recurrent_y= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='yes', text='Recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
-    recurrent_n= ttk.Radiobutton(master= expense_page, variable= recurrent_bin, value='no', text='Non-recurring', command= lambda: is_recurrent(recurrent_bin, check_box, recurrency_type) )
-    recurrent_y.place(x=0,y=590)
-    recurrent_n.place(x=100,y=590)
-
-    
-    expense_date=tk.StringVar(value=today)
-    expense_date_entry=ttk.Entry(expense_page, textvariable= expense_date)
-    expense_date_entry.place(x=460,y=590, width=100)
-    expense_date_label=ttk.Label(expense_page, text="Expense date")
-    expense_date_label.place(x=360,y=590)
-
-    expense_curr=tk.StringVar(value='IRT')
-    curr_check_box= ttk.Combobox(master= expense_page ,values=('IRT', 'USDT'), textvariable=expense_curr)
-    curr_check_box.place(x=710,y=590, width=90)
-    expense_curr_label=ttk.Label(expense_page, text="Expense currency")
-    expense_curr_label.place(x=590,y=590)
-
-
-    main_page_button=ttk.Button(master= expense_page, text='Main Page', command= lambda: return_to_mainpage(expense_page))
-    main_page_button.place(x=335,y=650)
-
-    added_expense_button=ttk.Button(master= expense_page, text='Add', command= lambda : return_expense_list(expense_page,expense_name, expense_amount, expense_payer, expense_owers, selected_extype, split_type, expense_share,recurrency_type,expense_date,expense_curr))
-    added_expense_button.place(x=270,y=650)
-
-def is_recurrent(recurr_state, ch_box, rec_type):
-    if recurr_state.get()=='yes':
-        ch_box.config( state=tk.NORMAL)
-    else:
-        rec_type.set(value="")
-        ch_box.config(state=tk.DISABLED)
 
 expense_list_page=ttk.Frame(master=window, width= 700, height=700)
 expense_list_page.pack_propagate(False)
