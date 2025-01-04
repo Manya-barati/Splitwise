@@ -4,7 +4,7 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from Def_of_classes import Group, Expenses, Friend
 import pandas as pd
-from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification
+from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification, final_answer
 import networkx as nx
 import matplotlib.pyplot as plt
 from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph, generate_colors
@@ -49,20 +49,24 @@ conn.close()"""
 cursor.execute('SELECT * FROM users ')
 x=cursor.fetchall()
 print(x)
+#this prevents unwanted errors
+file_path=''
 
+#this dictionary saves new groups data
 group_dict={}
-group_names="files\\group_names.txt"
-group_types="files\\group_types.txt"
 
+#these two lists will save group names and group types
+group_list = []
+group_tlist = []
 
 #loading group type images
-trip=Image.open('pics\\trip.png')
-home=Image.open('pics\\home.png')
-couple=Image.open('pics\\couple.png')
-family=Image.open('pics\\family.png')
-party=Image.open('pics\\party.png')
-other=Image.open('pics\\other.png')
-
+trip=Image.open('pics\\trip.png').resize((50,50))
+home=Image.open('pics\\home.png').resize((50,50))
+couple=Image.open('pics\\couple.png').resize((50,50))
+family=Image.open('pics\\family.png').resize((50,50))
+party=Image.open('pics\\party.png').resize((50,50))
+other=Image.open('pics\\other.png').resize((50,50))
+#loading expense type images
 food=(Image.open('pics\\food.png')).resize((50,50))
 shopping=(Image.open('pics\\shopping.png')).resize((50,50))
 transportation=(Image.open('pics\\transportation.png')).resize((50,50))
@@ -74,20 +78,11 @@ business=(Image.open('pics\\business.png')).resize((50,50))
 charity=(Image.open('pics\\charity.png')).resize((50,50))
 
 
-
-trip=trip.resize((50,50))
-home=home.resize((50,50))
-couple=couple.resize((50,50))
-family=family.resize((50,50))
-party=party.resize((50,50))
-other=other.resize((50,50))
-
-
 window=ttk.Window( themename="minty",iconphoto="pics\\icon1.png")
 window.geometry('950x700+500+200')
 window.title("Splitwise")
 
-
+#load the image in Tkinter
 Ticon=ImageTk.PhotoImage(trip)
 Hicon=ImageTk.PhotoImage(home)
 Cicon=ImageTk.PhotoImage(couple)
@@ -219,8 +214,7 @@ def check_acount_creation(username, password, name, rep_password):
     signup_window.pack_forget()
     login_window.pack()
 
-group_list = []
-group_tlist = []
+
 def create_group_list():
     cursor.execute('SELECT groups FROM users WHERE username = ?', (current_username, ))
     result = cursor.fetchone()
@@ -252,12 +246,13 @@ def add_group_for_friends(FriendName, group_name, group_type):
             cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f',{group_name}_{group_type}', FriendName))
             conn.commit()
 
+
+# command of "new_button" which shows the creating group page
 def new_group_page():
     page_1.pack_forget()
     add_group_page.pack()
 
-file_path=''
-
+# command of "details_button" which shows the details of an existing group
 def details_page(item_values):
     global file_path, group_name_label, group_type_label
     page_1.pack_forget()
@@ -266,7 +261,7 @@ def details_page(item_values):
     type=item_values[2]
     file_path=f"files\\{name}_{type}.csv"
 
-    add_friend_button=ttk.Button(exadd_friend_page,text='Add person',command= lambda: add_friend_prev(exadd_friend_name))
+    add_friend_button=ttk.Button(exadd_friend_page,text='Add person',command= add_friend_prev)
     add_friend_button.place(x=300,y=150)
 
     add_expense_button=ttk.Button(master= exadd_friend_page, text='Add Expenses', command= lambda: expense_page_func(exadd_friend_page, expense_page2)  )
@@ -290,10 +285,7 @@ def details_page(item_values):
 
     exadd_friend_page.pack()
 
-def switch_back_to_main(current_frame):
-    current_frame.pack_forget()
-    page_1.pack()
-
+# binding function of group table which turn details button enable when a row in the table is selected
 def on_item_select(event):
     global selected_item_details
     selected_item = group_table.focus()
@@ -301,74 +293,7 @@ def on_item_select(event):
     if selected_item_details:
         details_button.config(state=tk.NORMAL)
 
-
-def add_name_(path,friend_entry, friend_name ):
-    global error_label6, error_label7
-    friend_nam=friend_name.get().split(',')
-    friend_nam=[friend.strip() for friend in friend_nam]
-    with open(path,mode= 'r') as f:
-        friends_list= f.readline().split(',')[1:-1]
-    #print(friends_list)
-    try:
-        error_label7.place_forget()
-        error_label6.place_forget()
-    except:
-        pass
-    for i in friend_nam:
-        if i=='':
-            friend_nam=False
-            break
-
-    if not friend_nam:
-        error_label7=ttk.Label(master= exadd_friend_name, text='Please enter a valid name or a valid list of names.', foreground="red")
-        error_label7.place(x=100,y=20)       
-    elif not any(friend in friends_list for friend in friend_nam ) :
-        friend_tabl.pack_forget()
-        exadd_friend_name.pack_forget()
-        friends_list.append(friend_nam)
-        print(friend_nam, group_name.get().strip())
-        print(selected_item_details)
-        cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{friend_nam}', f'{selected_item_details[1]}_{selected_item_details[2]}'))
-        conn.commit()
-        add_group_for_friends(friend_nam, selected_item_details[1], selected_item_details[2])
-        cursor.execute('SELECT * FROM friend_names')
-        group = cursor.fetchall()
-        print(group)
-        friend_entry.delete(0,tk.END)
-        for fr in friend_nam:
-            with open(path, mode='r') as f :
-                lines= f.readlines()
-                with open(path, mode='w') as g:
-                    if not lines:
-                        g.write(','+fr)
-                    first_line=lines[0].strip()+fr+','
-                    g.write(first_line)
-                    for line in lines[1:]:
-                        g.write('\n'+line.strip()+'0'+',')
-        details_page(selected_item_details)
-        try:
-          error_label6.place_forget()
-        except:
-            pass 
-    else:
-        error_label6=ttk.Label(master= exadd_friend_name, text='The name or one of the names already exists, please enter another name.', foreground="red")
-        error_label6.place(x=100,y=20) 
-
-
-def f_tabl(path):
-    global friend_tabl
-    with open(path,mode= 'r') as f:
-        friends_list= f.readline().split(',')[1:]
-    friend_tabl=ttk.Treeview(master= friend_tabl_frame, columns= ('number','name'),show='headings')
-    friend_tabl.heading('number', text='Number')
-    friend_tabl.heading('name', text='Name')
-    for i in range(len(friends_list)-1):
-        number=i+1
-        name=friends_list[i]
-        friend_tabl.insert(parent='', index=tk.END, values=(number,name))
-    friend_tabl.pack()
-
-
+# command of main page buttons, show main page and updates group table
 def return_to_mainpage(current_page):
     try:
         error_label1.place_forget()
@@ -383,6 +308,7 @@ def return_to_mainpage(current_page):
     current_page.pack_forget()
     page_1.pack()
 
+# command of "create_button" ,checks some conditions for creating a new group
 def create_group():
     global group_nam,selected_gtype, error_label1, error_label2, error_label3
     group_nam=group_name.get().strip()
@@ -408,7 +334,7 @@ def create_group():
     
         add_friend_page.pack()
 
-        add_friend_button=ttk.Button(add_friend_page,text='Add person',command=lambda : add_friend_denovo(add_friend_name))
+        add_friend_button=ttk.Button(add_friend_page,text='Add person',command= add_friend_denovo)
         add_friend_button.place(x=300,y=150)
 
         add_expense_button=ttk.Button(master= add_friend_page, text='Add Expenses', command= lambda :expense_page_func(add_friend_page, expense_page1)  )
@@ -478,9 +404,75 @@ def add_name(friend_entry, friend_name):
     else:
         error_label4=ttk.Label(master= add_friend_name, text='The name already exists, please enter another name.', foreground="red")
         error_label4.place(x=100,y=20) 
+def add_name_(path,friend_entry, friend_name ):
+    global error_label6, error_label7
+    friend_nam=friend_name.get().split(',')
+    friend_nam=[friend.strip() for friend in friend_nam]
+    with open(path,mode= 'r') as f:
+        friends_list= f.readline().split(',')[1:-1]
+    #print(friends_list)
+    try:
+        error_label7.place_forget()
+        error_label6.place_forget()
+    except:
+        pass
+    for i in friend_nam:
+        if i=='':
+            friend_nam=False
+            break
 
-def add_friend_denovo(page_to_pack):
-    #print(group_dict)
+    if not friend_nam:
+        error_label7=ttk.Label(master= exadd_friend_name, text='Please enter a valid name or a valid list of names.', foreground="red")
+        error_label7.place(x=100,y=20)       
+    elif not any(friend in friends_list for friend in friend_nam ) :
+        friend_tabl.pack_forget()
+        exadd_friend_name.pack_forget()
+        friends_list.append(friend_nam)
+        print(friend_nam, group_name.get().strip())
+        print(selected_item_details)
+        cursor.execute('UPDATE friend_names SET group_people = group_people || ? where group_name = ?', (f',{friend_nam}', f'{selected_item_details[1]}_{selected_item_details[2]}'))
+        conn.commit()
+        add_group_for_friends(friend_nam, selected_item_details[1], selected_item_details[2])
+        cursor.execute('SELECT * FROM friend_names')
+        group = cursor.fetchall()
+        print(group)
+        friend_entry.delete(0,tk.END)
+        for fr in friend_nam:
+            with open(path, mode='r') as f :
+                lines= f.readlines()
+                with open(path, mode='w') as g:
+                    if not lines:
+                        g.write(','+fr)
+                    first_line=lines[0].strip()+fr+','
+                    g.write(first_line)
+                    for line in lines[1:]:
+                        g.write('\n'+line.strip()+'0'+',')
+        details_page(selected_item_details)
+        try:
+          error_label6.place_forget()
+        except:
+            pass 
+    else:
+        error_label6=ttk.Label(master= exadd_friend_name, text='The name or one of the names already exists, please enter another name.', foreground="red")
+        error_label6.place(x=100,y=20) 
+
+
+def f_tabl(path):
+    global friend_tabl
+    with open(path,mode= 'r') as f:
+        friends_list= f.readline().split(',')[1:]
+    friend_tabl=ttk.Treeview(master= friend_tabl_frame, columns= ('number','name'),show='headings')
+    friend_tabl.heading('number', text='Number')
+    friend_tabl.heading('name', text='Name')
+    for i in range(len(friends_list)-1):
+        number=i+1
+        name=friends_list[i]
+        friend_tabl.insert(parent='', index=tk.END, values=(number,name))
+    friend_tabl.pack()
+
+#command of "add_friend_button" for new groups
+def add_friend_denovo():
+
     friend_name=tk.StringVar()
     friend_entry=ttk.Entry(master=add_friend_name,textvariable=friend_name)
     friend_entry.place(x=220, y=50)
@@ -494,9 +486,9 @@ def add_friend_denovo(page_to_pack):
     add_friend_page.pack_forget()
     add_friend_name.pack()
 
-def add_friend_prev(page_to_pack):
-    #print(group_dict)
-
+#command of "add_friend_button" for existing groups
+def add_friend_prev():
+    #command,forgetting page and packing page are different
     friend_name=tk.StringVar()
     friend_entry=ttk.Entry(master=exadd_friend_name,textvariable=friend_name)
     friend_entry.place(x=220, y=50)
@@ -825,23 +817,18 @@ def calculate_trans(page_to_forget,path):
                 transaction_list.append([col, payer, amount])
     Graph= Construct_graph(transaction_list)
     Graph.construct_transaction_dict()
-    #print(Graph.trans_dict)
+
     graph_1 = Graph.convert_to_dict_graph()
-    #print('initial graph', graph_1, '\n')
 
-    Cycle = Delete_Cycle(graph_1)
-    graph_2 = Cycle.answer()
+    graph_2,centr = final_answer(transaction_list)
 
-    greedy= Greedy_Debt_Simplification(graph_2)
-    graph_4 = greedy.answer()
-
-    list_tr=convert_dict_to_list(graph_4)
+    list_tr=convert_dict_to_list(graph_2)
     create_transaction_ui(result_page,list_tr)
 
-    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: show_graph(graph_1, graph_4 ))
+    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: show_graph(graph_1, graph_2 ))
     show_graph_button.place(x=50,y=500,width=150, height=50)
 
-    balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: balances(graph_4,friends_list))
+    balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: balances(graph_2,friends_list))
     balances_button.place(x=220,y=500 ,width=100, height=50)
 
     exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: expense_chart(df))
