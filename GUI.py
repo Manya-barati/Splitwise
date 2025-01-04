@@ -11,6 +11,7 @@ import sqlite3
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from datetime import date
 import re
+from tkinter import filedialog
 
 
 todate=str(date.today()).split('-')
@@ -341,7 +342,7 @@ def create_group():
         cursor.execute(f'''CREATE TABLE IF NOT EXISTS {group_nam} (id INTEGER PRIMARY KEY AUTOINCREMENT, transaction_name TEXT NOT NUll, status TEXT DEFAULT "Unpaid")''')
         conn.commit()
 
-        cursor.execute('INSERT INTO group_currency (group_nam, group_curr) VALUES (?, ?)', (f'{group_nam}' ,group_curr.get()))
+        cursor.execute('INSERT INTO group_currency (group_nam, group_curr) VALUES (?, ?)', (f'{group_nam}_{selected_gtype}' ,group_curr.get()))
         conn.commit()
 
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
@@ -604,16 +605,16 @@ def expense_stuffs(expense_page):
 
     #house, food, shopping, transportation, hobby, medicine, education, gifts, business, pets, charity
     selected_extype=tk.StringVar()
-    radio1=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='food', image=foo_icon, text='Food' ,compound='top')
+    radio1=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Food', image=foo_icon, text='Food' ,compound='top')
     radio2=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='House', image=Hicon, text='House' ,compound='top')
-    radio3=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='shopping', image=sh_icon, text='Shopping' ,compound='top')
-    radio4=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='transportation', image=tr_icon, text='Transport' ,compound='top')
-    radio5=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='hobby', image=ho_icon, text='Hobby' ,compound='top')
-    radio6=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='medicine', image=me_icon, text='Medicine' ,compound='top')
-    radio7=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='education', image=ed_icon, text='Education' ,compound='top')
-    radio8=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='gift', image=gi_icon, text='Gift' ,compound='top')
-    radio9=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='business', image=bu_icon, text='Business' ,compound='top')
-    radio10=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='charity', image=ch_icon, text='Charity' ,compound='top')
+    radio3=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Shopping', image=sh_icon, text='Shopping' ,compound='top')
+    radio4=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Transportation', image=tr_icon, text='Transport' ,compound='top')
+    radio5=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Hobby', image=ho_icon, text='Hobby' ,compound='top')
+    radio6=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Medicine', image=me_icon, text='Medicine' ,compound='top')
+    radio7=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Education', image=ed_icon, text='Education' ,compound='top')
+    radio8=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Gifts', image=gi_icon, text='Gift' ,compound='top')
+    radio9=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Business', image=bu_icon, text='Business' ,compound='top')
+    radio10=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Charity', image=ch_icon, text='Charity' ,compound='top')
     radio11=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Other', image=Oicon, text='Other' ,compound='top')
     radio1.place(x=50,y=220)
     radio2.place(x=150,y=220)
@@ -773,7 +774,7 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
             except:
                 pass
         else:
-            cursor.execute('SELECT group_curr FROM group_currency WHERE group_nam = ?', (f'{selected_item_details[1]}',))
+            cursor.execute('SELECT group_curr FROM group_currency WHERE group_nam = ?', (f'{selected_item_details[1]}_{selected_item_details[2]}',))
             group_currency = cursor.fetchone()
             group_currency = group_currency[0]
             group_curr=group_currency
@@ -1210,9 +1211,81 @@ def settle_payment(btn, person1, person2, value):
         cursor.execute(f'UPDATE {selected_item_details[1]} SET status = ? where transaction_name = ? ', ('Settled', f'{person1}_{person2}_{value}'))
     conn.commit()
 
+def load_exel():
+    new_file_path = filedialog.askopenfilename(filetypes = [("CSV Files", "*.csv"), ("All Files", "*.*")])
+    if new_file_path:
+        file_path = new_file_path
+        load_file_page=tk.Toplevel(window)
+        load_file_page.geometry('500x500')
+        load_file_page.title('group information')
+        group_name=tk.StringVar()
+        group_name_entry=ttk.Entry(load_file_page, textvariable= group_name)
+        group_name_entry.place(x=170,y=40)
+        group_name_label=ttk.Label(load_file_page, text="Group name")
+        group_name_label.place(x=70,y=40)
 
-page_1=ttk.Frame(window, width= 700, height=500)
+        group_type_label=ttk.Label(load_file_page, text="Group type")
+        group_type_label.place(x=70,y=120)
+
+        group_type=tk.StringVar()
+        group_comb=ttk.Combobox(load_file_page, values=('Trip','Home','Couple','Family','Party','Other'),textvariable=group_type)
+        group_comb.place(x=170,y=120)
+        group_curr=tk.StringVar(value='IRT')
+        group_check_box= ttk.Combobox(master= load_file_page ,values=('IRT', 'USDT'), textvariable=group_curr)
+        group_check_box.place(x=235,y=270, width=90)
+        group_curr_label=ttk.Label(load_file_page, text="Expense currency")
+        group_curr_label.place(x=105,y=270)
+
+        error_label=ttk.Label(load_file_page, text='', foreground='red')
+        error_label.place(x=150,y=300)
+
+        create_button=ttk.Button(master= load_file_page, text='Create', command= lambda: check_group_load(group_name,group_type,group_curr,error_label,file_path,load_file_page))
+        create_button.place(x=225,y=350)
+
+def check_group_load(group_name,group_type,group_curr,error_label,path,page):
+    group_name= group_name.get()
+    group_type= group_type.get()
+    group_curr= group_curr.get()
+
+    if not group_name:
+        error_label.config(text= 'Please enter valid name')
+        return
+    if not group_type:
+        error_label.config(text= 'Please select a group type')
+        return
+    cursor.execute('SELECT * FROM users')
+    group_names=[]
+    for user in cursor.fetchall():
+        group_names+=user[3].split(',')[1:]
+    group_names=list(set(group_names))
+    if f"{group_name}_{group_type}" in group_names:
+        error_label.config(text= 'The group name already exists')
+        return
+    with open(path, mode='r') as f:
+        lines=f.readlines()
+        with open(f'files\\{group_name}_{group_type}.csv', mode='w') as g:
+            for line in lines:
+                g.write(line) 
+    cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f",{group_name}_{group_type}", current_username)) 
+    conn.commit()
+    cursor.execute('INSERT INTO group_currency (group_nam, group_curr) VALUES (?, ?)', (f'{group_name}_{group_type}' ,group_curr))
+    conn.commit()
+    group_table.pack_forget()
+    g_table()
+    page.destroy()
+
+
+
+
+
+    
+
+
+page_1=ttk.Frame(window, width= 700, height=700)
 page_1.pack_propagate(False)
+
+load_file_button = ttk.Button(master=page_1, text="load file", command= load_exel)
+load_file_button.place(x= 300, y= 550)
 
 welcome_label = ttk.Label(master = page_1, text = '', font = ('Times New Roman', 22), foreground= 'medium sea green')
 welcome_label.place(x = 230, y = 20)
