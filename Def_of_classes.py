@@ -13,9 +13,11 @@ class Expenses():
 
 
 class Group():
-    def __init__(self):
+    def __init__(self,name, type):
         self.expenses = []
         self.friends = []
+        self.name=name
+        self.type=type
 
     def add_friend(self, new_friend):
         self.friends.append(new_friend)
