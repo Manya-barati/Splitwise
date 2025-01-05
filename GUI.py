@@ -10,6 +10,7 @@ from classes_and_results import Group, Friend, Expense, calculate_color, visuali
 generate_colors, CreateCalss, visualize_expenses_for_person, visualize_expenses_in_category,visualize_last_week, total_debts
 import sqlite3
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_pdf import PdfPages
 from datetime import date
 import re
 from tkinter import filedialog
@@ -117,6 +118,7 @@ def login_page():
     sign_up_button = ttk.Button(login_window, text= 'create one', command= lambda: sign_up_page())
     sign_up_button.place(x= 370, y= 394)
 
+
     error_label_invalid=ttk.Label(login_window, text='', foreground = 'red')
     error_label_invalid.place(x=280, y=335)
 
@@ -183,7 +185,9 @@ def sign_up_page():
 
     create_button = ttk.Button(signup_window, text= 'Create', command= lambda: check_acount_creation(username, password, name, rep_password))
     create_button.place(x= 340, y=450 )
-
+    
+    back_button = ttk.Button(signup_window, text= 'back', command= lambda: return_to_back(signup_window, login_window))
+    back_button.place(x= 340, y= 500)
     signup_window.pack()
 
 # command of "create" botton
@@ -971,8 +975,12 @@ def calculate_trans(page_to_forget,path):
     centr1=centrality_calculation(graph_1,balance)
     graph_2,centr2 = final_answer(transaction_list)
 
+    print(graph_1)
+    print(graph_2)
     list_tr=convert_dict_to_list(graph_2)
     create_transaction_ui(result_page,list_tr)
+
+    gr = CreateCalss(path,group_curr.get())
 
     show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: show_graph(graph_1, graph_2,centr1,centr2 ))
     show_graph_button.place(x=50,y=500,width=120, height=50)
@@ -989,6 +997,9 @@ def calculate_trans(page_to_forget,path):
     extrends_chart_button=ttk.Button(master= result_page, text='Expense trends', command= lambda: expense_trend_chart(df,path, group_curr,graph_2))
     extrends_chart_button.place(x=610,y=500,width=130, height=50)
 
+    export_pdf_button=ttk.Button(master= result_page, text='Export pdf', command= lambda: save_report(graph_1, graph_2,centr1,centr2,[gr], current_username))
+    export_pdf_button.place(x=400,y=600)
+
 
     page_to_forget.pack_forget()
     result_page.pack()
@@ -1004,7 +1015,7 @@ def convert_dict_to_list(in_dict):
 
 #creating a canvas widget containing transactions
 def create_transaction_ui(root, transactions):
-    canvas = ttk.Canvas(root, width=400, height=300, bg="white")
+    canvas = ttk.Canvas(root, width=600, height=500, bg="white")
     canvas.place(x=75, y=10)
 
     y_offset = 50  # Initial y-coordinate for arrows
@@ -1029,12 +1040,12 @@ def create_transaction_ui(root, transactions):
         person1, person2, value = transaction
         
         # Draw arrow and label
-        x1, y1 = 100, y_offset
-        x2, y2 = 300, y_offset
+        x1, y1 = 130, y_offset
+        x2, y2 = 280, y_offset
         canvas.create_line(x1, y1, x2, y2, arrow=tk.LAST)
         canvas.create_text((x1 + x2) / 2, y1 - 10, text="{:0.2f}".format(value), fill="blue")
-        canvas.create_text(x1 - 50, y1, text=person1, anchor="e", fill="black")
-        canvas.create_text(x2 + 50, y2, text=person2, anchor="w", fill="black")
+        canvas.create_text(x1 - 40, y1, text=person1, anchor="e", fill="black")
+        canvas.create_text(x2 + 40, y2, text=person2, anchor="w", fill="black")
         
         # creates extra buttons!!!
         cursor.execute(f'SELECT status from {current_group} WHERE transaction_name = ?', (f'{person1}_{person2}_{value}', ))
@@ -1154,7 +1165,7 @@ def pie_chart_page(data_frame,path, group_curr,graph):
 #command of "extrends_chart_button", supposed to show expense trend chart
 def expense_trend_chart(data_frame,path, group_curr,graph):
     gr = CreateCalss(path,group_curr.get())
-
+    #print(gr.expenses[3].day)
     person = current_username
     bar=visualize_last_week([gr], person)
     expense_chart_page= ttk.Frame(window, width= 700, height= 700)
@@ -1171,6 +1182,26 @@ def expense_trend_chart(data_frame,path, group_curr,graph):
 def return_to_back(current_page, back_page):
     current_page.pack_forget()
     back_page.pack()
+
+# save report as pdf
+def save_report(graph_before, graph_after,c1,c2, group_list, person):
+    g_name=group_list[0].name
+    g_type=group_list[0].type
+    pdf_name = f"{g_name}_{g_type}.pdf"
+    with PdfPages(pdf_name) as pdf:
+        # first page of pdf report
+        plt.title("Graph Before Simplification")
+        pdf.savefig(visualize_graph(graph_before,c1))
+        plt.title("Graph After Simplification")
+        pdf.savefig(visualize_graph(graph_after,c2))
+
+        # second page of pdf report
+        pdf.savefig(visualize_last_week(group_list, person))
+        pdf.savefig(visualize_bar_chart(group_list, person))
+
+        # third page of pdf report
+        pdf.savefig(visualize_pie_chart(total_debts(graph_after)))
+        pdf.savefig(visualize_expenses_for_person(group_list, person))
 
 # command of "expense_details_button", shows the details of selected expense
 def expense_detail_func(selected_item, page_to_forget):

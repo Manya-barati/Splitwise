@@ -130,7 +130,6 @@ class Group():
         # convert currency if input and output curr is different
         exp.convert_curr()
         # each time adding a expense, check for the recurring expenses
-        self.recurring_expense()
 
     # def update_pay(self, expense):
     #    for i, person in enumerate(expense.owers):
@@ -540,7 +539,7 @@ def each_day_exp(gr_list, person):
     exp_in_day = {}
     for gr in gr_list:
         for exp in gr.expenses:
-            for n in range(1, 8): # change the range (8 = days + 1) if you want more days :) # not preferred :)
+            for n in range(0, 8): # change the range (8 = days + 1) if you want more days :) # not preferred :)
                 if exp.payer == person or person in exp.owers:
                     today = date.today()
                     day = today - timedelta(days=n)

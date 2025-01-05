@@ -448,45 +448,5 @@ def final_answer(transactions):
 
     return final_graph, center_node
 
-gr, cen = final_answer(transactions)
-print(gr, cen)
-
-"""Graph= Construct_graph(construct_transactions(300, 2000))
-Graph.construct_transaction_dict()
-graph_1 = Graph.convert_to_dict_graph()
-print('initial graph', num_transactions(graph_1))
-
-Cycle = Delete_Cycle(graph_1)
-graph_2 = Cycle.answer()
-print('graph with no cycle', num_transactions(graph_2))
-
-graph_2_converted = Graph.convert_dict_to_array(graph_2)
-MF = Max_Flow_Simplification(graph_2_converted)
-graph_3= MF.update_graph()
-graph_3_converted = Graph.convert_array_to_dict(graph_3)
-print('after max flow simplification', num_transactions(graph_3_converted))
-
-greedy= Greedy_Debt_Simplification(graph_2)
-graph_4 = greedy.answer()
-#print(greedy.amounts)
-print('after greedy simplification', num_transactions(graph_4))
-time_2 = timeit.timeit(greedy.answer, number = 1)
-print('greedy time', time_2)
-
-lp = Linear_Programming_Simplification(greedy.amounts)
-trans_lp = lp.LP()
-New_graph = Construct_graph(trans_lp)
-graph_5 = New_graph.convert_to_dict_graph()
-print('linear programming answer', num_transactions(graph_5))
-time_1 = timeit.timeit(lp.LP, number = 1)
-print('LP time', time_1)
 
 
-milp = Linear_Programming_Simplification(greedy.amounts)
-trans_milp = milp.MILP()
-New_graph_2 = Construct_graph(trans_milp)
-graph_6 = New_graph_2.convert_to_dict_graph()
-print('MILP answer', num_transactions(graph_6))
-print(graph_6)"""
-
-#print('center node:', centrality_calculation(graph_1, greedy.amounts))
