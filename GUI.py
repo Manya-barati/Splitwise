@@ -2,16 +2,17 @@ import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
-from Def_of_classes import Group, Expenses, Friend
 import pandas as pd
-from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification, final_answer
+from detect_cycle import Construct_graph, Delete_Cycle, Greedy_Debt_Simplification, Max_Flow_Simplification, final_answer, centrality_calculation
 import networkx as nx
 import matplotlib.pyplot as plt
-from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph, generate_colors
+from classes_and_results import Group, Friend, Expense, calculate_color, visualize_bar_chart, visualize_pie_chart, visualize_graph, \
+generate_colors, CreateCalss, visualize_expenses_for_person, visualize_expenses_in_category,visualize_last_week, total_debts
 import sqlite3
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from datetime import date
 import re
+from tkinter import filedialog
 
 
 todate=str(date.today()).split('-')
@@ -24,7 +25,7 @@ cursor = conn.cursor()     # a curser is used to execute sqlite3 commands
 # creating a table for saving group members
 cursor.execute('''CREATE TABLE IF NOT EXISTS friend_names (id INTEGER PRIMARY KEY AUTOINCREMENT,
                                                             group_name TEXT NOT NULL UNIQUE,
-                                                            group_people TEXT DEFAULT "")''')
+                                                            group_people TEXT DEFAULT "" )''')
 conn.commit()
 
 # creating a table for users data
@@ -34,6 +35,10 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOI
                                                     groups TEXT DEFAULT "")''')    
 conn.commit()
 
+cursor.execute('''CREATE TABLE IF NOT EXISTS group_currency (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                            group_nam TEXT NOT NULL,
+                                                            group_curr TEXT DEFAULT 'IRT')''')
+conn.commit()
 
 #these prevents unwanted errors
 file_path=''
@@ -338,6 +343,9 @@ def create_group():
         cursor.execute(f'''CREATE TABLE IF NOT EXISTS {group_nam} (id INTEGER PRIMARY KEY AUTOINCREMENT, transaction_name TEXT NOT NUll, status TEXT DEFAULT "Unpaid")''')
         conn.commit()
 
+        cursor.execute('INSERT INTO group_currency (group_nam, group_curr) VALUES (?, ?)', (f'{group_nam}_{selected_gtype}' ,group_curr.get()))
+        conn.commit()
+
         group_dict[group_nam]=(Group(group_nam, selected_gtype),[])
 
         # the first friend in the group is current username
@@ -598,16 +606,16 @@ def expense_stuffs(expense_page):
 
     #house, food, shopping, transportation, hobby, medicine, education, gifts, business, pets, charity
     selected_extype=tk.StringVar()
-    radio1=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='food', image=foo_icon, text='Food' ,compound='top')
+    radio1=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Food', image=foo_icon, text='Food' ,compound='top')
     radio2=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='House', image=Hicon, text='House' ,compound='top')
-    radio3=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='shopping', image=sh_icon, text='Shopping' ,compound='top')
-    radio4=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='transportation', image=tr_icon, text='Transport' ,compound='top')
-    radio5=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='hobby', image=ho_icon, text='Hobby' ,compound='top')
-    radio6=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='medicine', image=me_icon, text='Medicine' ,compound='top')
-    radio7=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='education', image=ed_icon, text='Education' ,compound='top')
-    radio8=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='gift', image=gi_icon, text='Gift' ,compound='top')
-    radio9=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='business', image=bu_icon, text='Business' ,compound='top')
-    radio10=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='charity', image=ch_icon, text='Charity' ,compound='top')
+    radio3=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Shopping', image=sh_icon, text='Shopping' ,compound='top')
+    radio4=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Transportation', image=tr_icon, text='Transport' ,compound='top')
+    radio5=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Hobby', image=ho_icon, text='Hobby' ,compound='top')
+    radio6=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Medicine', image=me_icon, text='Medicine' ,compound='top')
+    radio7=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Education', image=ed_icon, text='Education' ,compound='top')
+    radio8=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Gifts', image=gi_icon, text='Gift' ,compound='top')
+    radio9=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Business', image=bu_icon, text='Business' ,compound='top')
+    radio10=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Charity', image=ch_icon, text='Charity' ,compound='top')
     radio11=ttk.Radiobutton(master=expense_page, variable=selected_extype, value='Other', image=Oicon, text='Other' ,compound='top')
     radio1.place(x=50,y=220)
     radio2.place(x=150,y=220)
@@ -713,7 +721,6 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
     expense_paye= expense_payer.get().strip()
     expense_ower= expense_owers.get().split(',')
     expense_ower=[x.strip() for x in expense_ower]
-    print(expense_ower)
     extyp= selected_extype.get()
     split_typ= split_type.get() 
     share= expense_share.get().split(',')
@@ -725,7 +732,6 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
         expense_dat=expense_date_[2]+'-'+expense_date_[0]+'-'+expense_date_[1]
     else:
         expense_dat=False
-    print(expense_dat)
     expense_cur=expense_curr.get()
     people=[expense_paye]+expense_ower
     if split_typ!='Equal':
@@ -738,6 +744,7 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
             share=False
     else:
         share=[1/len(people) for i in people]
+    dicty={k:v for (k,v) in zip(people,share)}    
 
     if not expense_nam or not expense_paye or expense_ower==[''] :
         error_label.config(text='Please fill the entries .')
@@ -756,17 +763,30 @@ def return_expense_list(expense_page,expense_name, expense_amount, expense_payer
     elif not expense_dat:
         error_label.config(text='Please enter a valid date according to the desired pattern.')
     elif expense_nam not in expense_list and expense_paye in friends_list and all(ower in friends_list for ower in expense_ower) :
+        
         if expense_page== expense_page1:
+            group_curre= group_curr.get()
+            expense=Expense(expense_nam, expense_amoun, expense_paye, expense_ower, group_nam, extyp,expense_dat, 
+                             expense_cur, group_curr.get(), split_typ, share, recur_type, recur_type )
             try:
                 expense_table.pack_forget()
             except:
                 pass
         else:
+            cursor.execute('SELECT group_curr FROM group_currency WHERE group_nam = ?', (f'{selected_item_details[1]}_{selected_item_details[2]}',))
+            group_currency = cursor.fetchone()
+            group_currency = group_currency[0]
+            group_curre=group_currency
+            expense=Expense(expense_nam, expense_amoun, expense_paye, expense_ower, selected_item_details[1], extyp,expense_dat, 
+                             expense_cur, group_currency, split_typ, share, recur_type, recur_type )
             try:
                 expense_tabl.pack_forget()
             except:
                 pass
         expense_list.append(expense_nam)
+        expense.convert_curr()
+        expense_cur=group_curre
+        expense_amoun=expense.value
         amount_list.append(expense_amoun)
         extype_list.append(extyp)
         payer_list.append(expense_paye)
@@ -834,7 +854,6 @@ def ex_table(path):
     for i in range(len(list(df.index))):
         number=i+1
         elements=list(df.index)[i].split('_')
-        #print(elements)
         name= elements[0]
         ex_type= elements[2]
         amount= elements[1]
@@ -863,7 +882,6 @@ def ex_tabl(path):
     for i in range(len(list(df.index))):
         number=i+1
         elements=list(df.index)[i].split('_')
-        #print(elements)
         name= elements[0]
         ex_type= elements[2]
         amount= elements[1]
@@ -947,23 +965,29 @@ def calculate_trans(page_to_forget,path):
     Graph.construct_transaction_dict()
 
     graph_1 = Graph.convert_to_dict_graph()
-
-    graph_2,centr = final_answer(transaction_list)
+    greedy = Greedy_Debt_Simplification(graph_1)
+    greedy.calculate_amount()
+    balance = greedy.amounts
+    centr1=centrality_calculation(graph_1,balance)
+    graph_2,centr2 = final_answer(transaction_list)
 
     list_tr=convert_dict_to_list(graph_2)
     create_transaction_ui(result_page,list_tr)
 
-    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: show_graph(graph_1, graph_2 ))
-    show_graph_button.place(x=50,y=500,width=150, height=50)
+    show_graph_button=ttk.Button(master= result_page, text='Show Graph', command= lambda: show_graph(graph_1, graph_2,centr1,centr2 ))
+    show_graph_button.place(x=50,y=500,width=120, height=50)
 
     balances_button=ttk.Button(master= result_page, text='Balances', command= lambda: balances(graph_2,friends_list))
-    balances_button.place(x=220,y=500 ,width=100, height=50)
+    balances_button.place(x=190,y=500 ,width=100, height=50)
 
-    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: expense_chart(df))
-    exp_chart_button.place(x=340,y=500,width=150, height=50)
+    exp_chart_button=ttk.Button(master= result_page, text='Expense Chart', command= lambda: expense_chart(df,path, group_curr))
+    exp_chart_button.place(x=310,y=500,width=130, height=50)
 
-    unpaid_chart_button=ttk.Button(master= result_page, text='Unpaid Chart', command= lambda: return_to_mainpage(result_page))
-    unpaid_chart_button.place(x=510,y=500,width=150, height=50)
+    unpaid_chart_button=ttk.Button(master= result_page, text='Pie Chart', command= lambda: pie_chart_page(df,path, group_curr,graph_2))
+    unpaid_chart_button.place(x=460,y=500,width=130, height=50)
+
+    extrends_chart_button=ttk.Button(master= result_page, text='Expense trends', command= lambda: expense_trend_chart(df,path, group_curr,graph_2))
+    extrends_chart_button.place(x=610,y=500,width=130, height=50)
 
 
     page_to_forget.pack_forget()
@@ -1025,29 +1049,38 @@ def create_transaction_ui(root, transactions):
         row+=1
 
 # command of "show_graph_button", shows previous and current graph
-def show_graph(prev_graph,new_graph):
-    exgraph= visualize_graph(prev_graph)
-    ngraph= visualize_graph(new_graph)
-    graph_page= ttk.Frame(window, width= 1000, height=900)
-    graph_page.pack_propagate(False)
+def show_graph(prev_graph,new_graph,c1,c2):
+    exgraph= visualize_graph(prev_graph,c1)
+    ngraph= visualize_graph(new_graph,c2)
+    graph_page1= ttk.Frame(window, width= 1000, height=900)
+    graph_page1.pack_propagate(False)
 
-    prev_label= ttk.Label(graph_page,text='Previous Graph', font=("Times New Roman", 18 , "bold"))
-    prev_label.place(x=135, y=50)
-    canvas1 = FigureCanvasTkAgg(exgraph, master=graph_page)
+    graph_page2= ttk.Frame(window, width= 1000, height=900)
+    graph_page2.pack_propagate(False)
+
+    prev_label= ttk.Label(graph_page2,text='Previous Graph', font=("Times New Roman", 18 , "bold"))
+    prev_label.place(x=300, y=20)
+    canvas1 = FigureCanvasTkAgg(exgraph, master=graph_page2)
     canvas1.draw()
-    canvas1.get_tk_widget().place(x=50, y=100, width=400, height=400)
+    canvas1.get_tk_widget().place(x=170, y=70, width=600, height=600)
 
-    curr_label= ttk.Label(graph_page,text='Current Graph', font=("Times New Roman", 18 , "bold"))
-    curr_label.place(x=585, y=50)
-    canvas2 = FigureCanvasTkAgg(ngraph, master=graph_page)
+    curr_label= ttk.Label(graph_page1,text='Current Graph', font=("Times New Roman", 18 , "bold"))
+    curr_label.place(x=300, y=20)
+    canvas2 = FigureCanvasTkAgg(ngraph, master=graph_page1)
     canvas2.draw()
-    canvas2.get_tk_widget().place(x=450, y=100, width=400, height=400)
+    canvas2.get_tk_widget().place(x=170, y=70, width=600, height=600)
 
-    back_button= ttk.Button(graph_page, text= 'Back', command= lambda: return_to_back(graph_page, result_page) )
+    back_button= ttk.Button(graph_page1, text= 'Back', command= lambda: return_to_back(graph_page1, result_page) )
     back_button.place(x=400,y=600 ,width=100, height=35)
 
+    back1_button= ttk.Button(graph_page2, text= 'Back', command= lambda: return_to_back(graph_page2, graph_page1) )
+    back1_button.place(x=400,y=600 ,width=100, height=35)
+
+    forth_button= ttk.Button(graph_page1, text= 'Next', command= lambda: return_to_back(graph_page1,graph_page2 ) )
+    forth_button.place(x=200,y=600 ,width=100, height=35)
+
     result_page.pack_forget()
-    graph_page.pack()
+    graph_page1.pack()
 
 # command of "balances_button", shows balances in a table
 def balances(graph,friend_list):
@@ -1080,8 +1113,59 @@ def balances(graph,friend_list):
     balance_page.pack()
 
 #command of "exp_chart_button", supposed to show expense chart
-def expense_chart(data_frame):
-    pass
+def expense_chart(data_frame,path, group_curr):
+    gr = CreateCalss(path,group_curr.get())
+
+    exp = [ex.shares.items() for ex in gr.expenses]
+    person = current_username
+    bar=visualize_bar_chart([gr], person)
+    expense_chart_page= ttk.Frame(window, width= 700, height= 700)
+    expense_chart_page.pack_propagate(False)
+    canvas1 = FigureCanvasTkAgg(bar, master=expense_chart_page)
+    canvas1.draw()
+    canvas1.get_tk_widget().place(x=50, y=50, width=500, height=500)
+    back_button= ttk.Button(expense_chart_page, text= 'Back', command= lambda: return_to_back(expense_chart_page, result_page) )
+    back_button.place(x=300,y=600 ,width=100, height=50)
+    result_page.pack_forget()
+    expense_chart_page.pack()
+
+#command of "unpaid_chart_button", 
+def pie_chart_page(data_frame,path, group_curr,graph):
+    gr = CreateCalss(path,group_curr.get())
+
+    exp = [ex.shares.items() for ex in gr.expenses]
+    person = current_username
+    pie=visualize_expenses_for_person([gr], person)
+    pie_debt=visualize_pie_chart(total_debts(graph))
+    pie_chart_page= ttk.Frame(window, width= 900, height= 700)
+    pie_chart_page.pack_propagate(False)
+    canvas1 = FigureCanvasTkAgg(pie, master=pie_chart_page)
+    canvas1.draw()
+    canvas1.get_tk_widget().place(x=50, y=70, width=350, height=350)
+
+    canvas2 = FigureCanvasTkAgg(pie_debt, master=pie_chart_page)
+    canvas2.draw()
+    canvas2.get_tk_widget().place(x=450, y=70, width=350, height=350)
+    back_button= ttk.Button(pie_chart_page, text= 'Back', command= lambda: return_to_back(pie_chart_page, result_page) )
+    back_button.place(x=300,y=600 ,width=100, height=50)
+    result_page.pack_forget()
+    pie_chart_page.pack()
+
+#command of "extrends_chart_button", supposed to show expense trend chart
+def expense_trend_chart(data_frame,path, group_curr,graph):
+    gr = CreateCalss(path,group_curr.get())
+
+    person = current_username
+    bar=visualize_last_week([gr], person)
+    expense_chart_page= ttk.Frame(window, width= 700, height= 700)
+    expense_chart_page.pack_propagate(False)
+    canvas1 = FigureCanvasTkAgg(bar, master=expense_chart_page)
+    canvas1.draw()
+    canvas1.get_tk_widget().place(x=50, y=50, width=500, height=500)
+    back_button= ttk.Button(expense_chart_page, text= 'Back', command= lambda: return_to_back(expense_chart_page, result_page) )
+    back_button.place(x=300,y=600 ,width=100, height=50)
+    result_page.pack_forget()
+    expense_chart_page.pack()
 
 #command of back buttons
 def return_to_back(current_page, back_page):
@@ -1100,8 +1184,6 @@ def expense_detail_func(selected_item, page_to_forget):
     df=pd.read_csv(path)
     df = df.iloc[:, :-1]
     df = df.set_index(df.columns[0])
-    print(selected_item)
-    print(list(selected_item))
     number=int(selected_item[0])-1
     selected_line=df.iloc[number, :]
     det=selected_line.name.split('_')
@@ -1176,9 +1258,81 @@ def settle_payment(btn, person1, person2, value):
         cursor.execute(f'UPDATE {selected_item_details[1]} SET status = ? where transaction_name = ? ', ('Settled', f'{person1}_{person2}_{value}'))
     conn.commit()
 
+def load_exel():
+    new_file_path = filedialog.askopenfilename(filetypes = [("CSV Files", "*.csv"), ("All Files", "*.*")])
+    if new_file_path:
+        file_path = new_file_path
+        load_file_page=tk.Toplevel(window)
+        load_file_page.geometry('500x500')
+        load_file_page.title('group information')
+        group_name=tk.StringVar()
+        group_name_entry=ttk.Entry(load_file_page, textvariable= group_name)
+        group_name_entry.place(x=170,y=40)
+        group_name_label=ttk.Label(load_file_page, text="Group name")
+        group_name_label.place(x=70,y=40)
 
-page_1=ttk.Frame(window, width= 700, height=500)
+        group_type_label=ttk.Label(load_file_page, text="Group type")
+        group_type_label.place(x=70,y=120)
+
+        group_type=tk.StringVar()
+        group_comb=ttk.Combobox(load_file_page, values=('Trip','Home','Couple','Family','Party','Other'),textvariable=group_type)
+        group_comb.place(x=170,y=120)
+        group_curr=tk.StringVar(value='IRT')
+        group_check_box= ttk.Combobox(master= load_file_page ,values=('IRT', 'USDT'), textvariable=group_curr)
+        group_check_box.place(x=235,y=270, width=90)
+        group_curr_label=ttk.Label(load_file_page, text="Expense currency")
+        group_curr_label.place(x=105,y=270)
+
+        error_label=ttk.Label(load_file_page, text='', foreground='red')
+        error_label.place(x=150,y=300)
+
+        create_button=ttk.Button(master= load_file_page, text='Create', command= lambda: check_group_load(group_name,group_type,group_curr,error_label,file_path,load_file_page))
+        create_button.place(x=225,y=350)
+
+def check_group_load(group_name,group_type,group_curr,error_label,path,page):
+    group_name= group_name.get()
+    group_type= group_type.get()
+    group_curr= group_curr.get()
+
+    if not group_name:
+        error_label.config(text= 'Please enter valid name')
+        return
+    if not group_type:
+        error_label.config(text= 'Please select a group type')
+        return
+    cursor.execute('SELECT * FROM users')
+    group_names=[]
+    for user in cursor.fetchall():
+        group_names+=user[3].split(',')[1:]
+    group_names=list(set(group_names))
+    if f"{group_name}_{group_type}" in group_names:
+        error_label.config(text= 'The group name already exists')
+        return
+    with open(path, mode='r') as f:
+        lines=f.readlines()
+        with open(f'files\\{group_name}_{group_type}.csv', mode='w') as g:
+            for line in lines:
+                g.write(line) 
+    cursor.execute('UPDATE users SET groups = groups || ? where username = ?', (f",{group_name}_{group_type}", current_username)) 
+    conn.commit()
+    cursor.execute('INSERT INTO group_currency (group_nam, group_curr) VALUES (?, ?)', (f'{group_name}_{group_type}' ,group_curr))
+    conn.commit()
+    group_table.pack_forget()
+    g_table()
+    page.destroy()
+
+
+
+
+
+    
+
+
+page_1=ttk.Frame(window, width= 700, height=700)
 page_1.pack_propagate(False)
+
+load_file_button = ttk.Button(master=page_1, text="load file", command= load_exel)
+load_file_button.place(x= 300, y= 550)
 
 welcome_label = ttk.Label(master = page_1, text = '', font = ('Times New Roman', 22), foreground= 'medium sea green')
 welcome_label.place(x = 230, y = 20)
@@ -1336,7 +1490,7 @@ exsearch_button.place(x=400, y=10)
 exreset_button = ttk.Button(exexpense_list_page, text="Reset", command= lambda : reset_search(file_path))
 exreset_button.place(x=480, y=10)
 
-result_page=ttk.Frame(window, width= 700, height=700)
+result_page=ttk.Frame(window, width= 800, height=700)
 result_page.pack_propagate(False)
 
 main_page_button=ttk.Button(master= result_page, text='Main Page', command= lambda: return_to_mainpage(result_page))
