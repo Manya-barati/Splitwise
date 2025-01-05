@@ -432,7 +432,7 @@ def calculate_color(graph, central_node):
 
 
 # graph visualization using networkx
-def visualize_graph(graph):
+def visualize_graph(graph, central_node):
     # making a directional graph
     vis_graph = nx.DiGraph()
 
@@ -445,15 +445,17 @@ def visualize_graph(graph):
     nodes_pos = nx.spring_layout(vis_graph, k=5, iterations=50)
 
     # using color of nodes calculated before
-    nodes_color = calculate_color(vis_graph)
+    nodes_color = calculate_color(vis_graph, central_node)
     node_color = [nodes_color[node] for node in vis_graph.nodes]
 
     # visualization
     fig, ax = plt.subplots(figsize=(8, 6))
     nx.draw(vis_graph, nodes_pos, with_labels=True, node_color=node_color, node_size=1000, font_size=10)
-    nx.draw_networkx_edges(vis_graph, nodes_pos, arrowsize=15, ax=ax)
+    # drawing curved edges
+    for u, v in vis_graph.edges:
+        nx.draw_networkx_edges(vis_graph, nodes_pos, edgelist=[(u,v)], arrowsize=15, connectionstyle ="arc3,rad=0.2", ax=ax)
     edge_labels = nx.get_edge_attributes(vis_graph, 'weight')
-    nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels, ax=ax)
+    nx.draw_networkx_edge_labels(vis_graph, nodes_pos, edge_labels=edge_labels, label_pos=0.3, ax=ax)
 
     # legend making (drawing lines in the colors needed)
     legend_elements = [plt.Line2D([1], [1], color='green', linewidth=4, label='Creditor'),
@@ -464,6 +466,7 @@ def visualize_graph(graph):
     ax.legend(handles=legend_elements, loc='upper right', title="Legend")
 
     return fig
+
 
 
 # Total debts visualization by Pie chart
